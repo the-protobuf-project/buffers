@@ -88,9 +88,13 @@ Tagging `v*` triggers two workflows:
 | `release.yaml` | GoReleaser: both binaries for 6 platforms, a Homebrew cask in the org tap, a GitHub release |
 | `publish.yaml` | `buf push`: the `buffers.v1` vocabulary to the BSR |
 
-Both need secrets that are not set yet:
+Both need repository secrets, set under Settings → Secrets and variables → Actions:
 
 - `HOMEBREW_TAP_GITHUB_TOKEN` — a PAT with `repo` scope on `the-protobuf-project/homebrew-tap`
-- `BCR_PUBLISH_TOKEN` — a BSR token with write access to the organization
+- `BUF_TOKEN` — a BSR token with write access to the organization
 
-Add them under Settings → Secrets and variables → Actions.
+`BUF_TOKEN` is the only env var `buf` reads for BSR credentials, so `publish.yaml`
+must export it under exactly that name. The repo also carries a `BCR_PUBLISH_TOKEN`
+secret for the Bazel Central Registry; it is a different registry and is not a
+substitute — exporting it to `buf push` yields "you are not authenticated for
+buf.build".

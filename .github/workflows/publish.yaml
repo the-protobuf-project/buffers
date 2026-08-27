@@ -5,7 +5,7 @@ name: Publish (BSR)
 # so BSR module versions line up with GitHub releases (see release.yaml). Proto
 # lint and format checks live in lint.yaml, so this workflow only runs `buf push`.
 #
-# Requires a BCR_PUBLISH_TOKEN secret: a BSR API token with write access to the
+# Requires a BUF_TOKEN secret: a BSR API token with write access to the
 # the-protobuf-project organization. Add it under
 # Settings → Secrets and variables → Actions → New repository secret.
 # The action auto-creates the BSR repository on first push.
@@ -44,8 +44,11 @@ jobs:
 
       - name: Push to BSR
         env:
-          # buf authenticates to buf.build from BCR_PUBLISH_TOKEN.
-          BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
+          # buf reads this variable name and no other: BUF_TOKEN is the only
+          # env var buf checks for BSR credentials, so a token exported under
+          # any other name leaves the push unauthenticated. BCR_PUBLISH_TOKEN
+          # is the Bazel Central Registry token and is not interchangeable.
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
         # This is a two-module workspace (see buf.yaml): `protobuf` (buffers.v1)
         # is named and published, while `examples/proto` is a local-only
         # workspace module with no BSR name. A bare `buf push` errors on the
