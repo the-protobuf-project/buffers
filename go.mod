@@ -25,7 +25,6 @@ require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/spf13/cobra v1.10.2
 	github.com/the-protobuf-project/protokit v1.3.1
-	google.golang.org/genproto/googleapis/api v0.0.0-20260825221802-da73d73af1c5
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -34,4 +33,5 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	golang.org/x/sync v0.21.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260825221802-da73d73af1c5 // indirect
 )
