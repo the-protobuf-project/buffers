@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -101,7 +102,7 @@ func (r *run) prelude() []byte {
 	sort.Ints(kinds)
 
 	var b emit.Buf
-	b.Linef("@0x%016x;", bufir.DeriveFileID(preludePath))
+	b.Linef("@0x%016x;", buffers.DeriveFileID(preludePath))
 	b.Line("")
 	b.Raw(r.banner(preludePath))
 	b.Line("")
@@ -113,7 +114,7 @@ func (r *run) prelude() []byte {
 	// substituted Timestamp fails to generate is no more usable than one whose
 	// own types do. It is synthetic, so the values are this package's rather than
 	// read from a .proto.
-	r.annotationHeader(&b, &bufir.File{
+	r.annotationHeader(&b, &buffers.File{
 		Path:       preludePath,
 		Package:    "buffers.wellknown",
 		GoPackage:  "wellknown",
@@ -124,7 +125,7 @@ func (r *run) prelude() []byte {
 	for _, k := range kinds {
 		p := preludeType(k)
 		b.Line("")
-		body := fmt.Sprintf(preludeBodies[p], bufir.DeriveTypeID(preludeNames[p]))
+		body := fmt.Sprintf(preludeBodies[p], buffers.DeriveTypeID(preludeNames[p]))
 		for _, line := range splitLines(body) {
 			b.Line(line)
 		}

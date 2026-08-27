@@ -25,7 +25,7 @@ message FileOptions {
   // capnp_id pins the file's Cap'n Proto 64-bit ID.
   //
   // Left unset, the plugin derives one deterministically from the proto file
-  // path (see plugin/factory/bufir/capnpid.go) so that regenerating a schema
+  // path (see protokit's buffers/capnpid.go) so that regenerating a schema
   // produces the same ID rather than the random one `capnp id` would mint. Set
   // it when adopting a .capnp file that already exists in the wild: its ID is
   // part of every consumer's build, and rederiving it would orphan them.
@@ -126,7 +126,7 @@ message FieldOptions {
   // the Cap'n Proto `@N`.
   //
   // Leave it unset. The plugin derives a stable ordinal from the proto field
-  // number (see plugin/factory/bufir/ordinal.go), and a derived ordinal that
+  // number (see protokit's buffers/ordinal.go), and a derived ordinal that
   // never moves is worth more than a hand-written one that can be typo'd into
   // aliasing another field. Set it only to adopt an existing .capnp or .fbs
   // whose slots were assigned before this plugin existed — which is precisely

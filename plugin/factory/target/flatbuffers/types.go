@@ -3,47 +3,47 @@ package flatbuffers
 import (
 	"fmt"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // scalar returns the FlatBuffers spelling of a proto scalar kind, and whether the
 // kind is one.
-func scalar(k bufir.Kind) (string, bool) {
+func scalar(k buffers.Kind) (string, bool) {
 	switch k {
-	case bufir.KindDouble:
+	case buffers.KindDouble:
 		return "double", true
-	case bufir.KindFloat:
+	case buffers.KindFloat:
 		return "float", true
-	case bufir.KindInt32, bufir.KindSint32, bufir.KindSfixed32:
+	case buffers.KindInt32, buffers.KindSint32, buffers.KindSfixed32:
 		return "int", true
-	case bufir.KindUint32, bufir.KindFixed32:
+	case buffers.KindUint32, buffers.KindFixed32:
 		return "uint", true
-	case bufir.KindInt64, bufir.KindSint64, bufir.KindSfixed64:
+	case buffers.KindInt64, buffers.KindSint64, buffers.KindSfixed64:
 		return "long", true
-	case bufir.KindUint64, bufir.KindFixed64:
+	case buffers.KindUint64, buffers.KindFixed64:
 		return "ulong", true
-	case bufir.KindBool:
+	case buffers.KindBool:
 		return "bool", true
 	}
 	return "", false
 }
 
 // width returns the FlatBuffers spelling of an enum's underlying integer type.
-func width(w bufir.IntWidth) string {
+func width(w buffers.IntWidth) string {
 	switch w {
-	case bufir.IntWidthInt8:
+	case buffers.IntWidthInt8:
 		return "byte"
-	case bufir.IntWidthUint8:
+	case buffers.IntWidthUint8:
 		return "ubyte"
-	case bufir.IntWidthInt16:
+	case buffers.IntWidthInt16:
 		return "short"
-	case bufir.IntWidthUint16:
+	case buffers.IntWidthUint16:
 		return "ushort"
-	case bufir.IntWidthUint32:
+	case buffers.IntWidthUint32:
 		return "uint"
-	case bufir.IntWidthInt64:
+	case buffers.IntWidthInt64:
 		return "long"
-	case bufir.IntWidthUint64:
+	case buffers.IntWidthUint64:
 		return "ulong"
 	}
 	return "int" // IntWidthInt32 and unspecified, matching proto's own encoding
@@ -54,8 +54,8 @@ func width(w bufir.IntWidth) string {
 //
 // It does not handle oneof arms: a oneof becomes one union field covering every
 // arm, so the arms are never rendered as fields of their own. See plan.go.
-func (t *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
-	if f.Kind == bufir.KindMap {
+func (t *run) fieldType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
+	if f.Kind == buffers.KindMap {
 		// FlatBuffers has no map. The conventional replacement is a vector of
 		// two-field tables with the key marked `(key)`, which flatc gives a
 		// binary-search lookup over — so the substitution keeps the lookup, not
@@ -71,24 +71,24 @@ func (t *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagno
 }
 
 // baseType returns the element type, ignoring repeated-ness.
-func (t *run) baseType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
+func (t *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
 	if got, ok := scalar(f.Kind); ok {
 		return got, nil
 	}
 	switch f.Kind {
-	case bufir.KindString:
+	case buffers.KindString:
 		return "string", nil
-	case bufir.KindBytes:
+	case buffers.KindBytes:
 		// FlatBuffers has no bytes type; a vector of ubyte is the idiom, and
 		// flatc generates a direct pointer accessor for it.
 		return "[ubyte]", nil
-	case bufir.KindEnum:
+	case buffers.KindEnum:
 		return t.qualify(f.Enum, from), nil
-	case bufir.KindMessage:
+	case buffers.KindMessage:
 		return t.messageType(f, from)
 	}
-	return "", &bufir.Diagnostic{
-		Rule:    bufir.RuleTarget,
+	return "", &buffers.Diagnostic{
+		Rule:    buffers.RuleTarget,
 		Node:    f.Node,
 		Message: fmt.Sprintf("no FlatBuffers type for proto kind %s", f.Kind),
 	}

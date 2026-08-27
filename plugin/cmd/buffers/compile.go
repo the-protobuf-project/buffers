@@ -13,7 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/config"
 	"github.com/the-protobuf-project/buffers/plugin/factory/coreir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/langs"
@@ -101,7 +102,7 @@ func schemaGroups(model *coreir.Model, files []string, ext, goModule string) []l
 	byDir := langs.GroupFiles(files)
 
 	// Index the proto files by the directory their schema lands in.
-	meta := map[string]*bufir.File{}
+	meta := map[string]*buffers.File{}
 	if model != nil && model.Schema != nil {
 		for _, f := range model.Schema.Files {
 			dir := path.Dir(f.Path)

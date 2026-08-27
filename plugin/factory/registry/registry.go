@@ -12,9 +12,9 @@
 package registry
 
 import (
+	"github.com/the-protobuf-project/protokit/buffers"
 	"github.com/the-protobuf-project/protokit/factory"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/coreir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 	"github.com/the-protobuf-project/buffers/plugin/factory/source/proto"
@@ -50,7 +50,7 @@ type Options struct {
 // says, which languages are downstream — is passed in here, so the targets
 // themselves hold no configuration and can be constructed in a test with a sink
 // that writes to a map.
-func New(sink emit.Sink, opts bufir.Options, info provenance.Info, run Options) *factory.Registry[*coreir.Model] {
+func New(sink emit.Sink, opts buffers.Options, info provenance.Info, run Options) *factory.Registry[*coreir.Model] {
 	reg := factory.NewRegistry[*coreir.Model]()
 	reg.AddSource(proto.New(opts))
 	reg.AddTarget(flatbuffers.New(sink, info))
@@ -63,5 +63,5 @@ func New(sink emit.Sink, opts bufir.Options, info provenance.Info, run Options) 
 // TargetNames lists the registered targets, for an error message that tells the
 // caller what they could have typed.
 func TargetNames() string {
-	return New(nil, bufir.Options{}, provenance.Info{}, Options{}).TargetNames()
+	return New(nil, buffers.Options{}, provenance.Info{}, Options{}).TargetNames()
 }

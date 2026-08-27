@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // assignAliases binds each imported proto file to a `using` name.
@@ -21,7 +21,7 @@ import (
 // Two imports whose base names collide — a `common.proto` in two packages — are
 // disambiguated by prefixing the parent directory, so the alias stays derived
 // rather than becoming a counter that shifts when an import is added.
-func (r *run) assignAliases(f *bufir.File) map[string]string {
+func (r *run) assignAliases(f *buffers.File) map[string]string {
 	imports := make([]string, 0, len(f.Imports))
 	for _, imp := range f.Imports {
 		if strings.HasPrefix(imp, "google/protobuf/") {
@@ -54,7 +54,7 @@ func baseAlias(protoPath string) string {
 }
 
 // aliasFor returns the `using` name bound to another file.
-func (r *run) aliasFor(f *bufir.File) string {
+func (r *run) aliasFor(f *buffers.File) string {
 	if alias, ok := r.aliases[f.Path]; ok {
 		return alias
 	}
@@ -62,7 +62,7 @@ func (r *run) aliasFor(f *bufir.File) string {
 }
 
 // usings renders the import lines, including the prelude when the body needed it.
-func (r *run) usings(f *bufir.File) []string {
+func (r *run) usings(f *buffers.File) []string {
 	paths := make([]string, 0, len(r.aliases))
 	for p := range r.aliases {
 		paths = append(paths, p)

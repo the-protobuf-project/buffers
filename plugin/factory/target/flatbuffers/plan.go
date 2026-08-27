@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // plan.go turns a message's neutral ordinals into FlatBuffers `id:` attributes.
@@ -42,9 +42,9 @@ const (
 type fbsSlot struct {
 	// Kind distinguishes a field from a union or a placeholder.
 	Kind  slotKind
-	Field *bufir.Field // the field, or a union's first arm
-	Oneof *bufir.Oneof // set when Kind is slotUnion
-	ID    int32        // the `id:` attribute; for a union, the value's id
+	Field *buffers.Field // the field, or a union's first arm
+	Oneof *buffers.Oneof // set when Kind is slotUnion
+	ID    int32          // the `id:` attribute; for a union, the value's id
 
 	// Why explains a placeholder, so the emitted schema says what is holding the
 	// slot rather than leaving an unexplained `__slot_5:byte (deprecated)`.
@@ -58,11 +58,11 @@ type fbsSlot struct {
 // `(deprecated)` is exactly the right primitive: it keeps the vtable slot
 // allocated and stops the generated code exposing an accessor, which is what
 // "this slot is spoken for and you may not read it" means.
-func (t *run) planSlots(msg *bufir.Message) []fbsSlot {
+func (t *run) planSlots(msg *buffers.Message) []fbsSlot {
 	type entry struct {
 		ordinal int32
-		field   *bufir.Field
-		slot    *bufir.Slot
+		field   *buffers.Field
+		slot    *buffers.Slot
 	}
 
 	entries := make([]entry, 0, len(msg.Fields)+len(msg.Reserved))
@@ -136,8 +136,8 @@ func (t *run) planSlots(msg *bufir.Message) []fbsSlot {
 // every existing payload's discriminant means. Ordinal order is proto field
 // number order, so an arm added to the oneof lands at the end and the existing
 // discriminants keep their meaning.
-func unionArms(one *bufir.Oneof) []*bufir.Field {
-	arms := make([]*bufir.Field, 0, len(one.Fields))
+func unionArms(one *buffers.Oneof) []*buffers.Field {
+	arms := make([]*buffers.Field, 0, len(one.Fields))
 	for _, f := range one.Fields {
 		if f.Skip {
 			continue

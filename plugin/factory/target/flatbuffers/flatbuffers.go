@@ -11,7 +11,7 @@
 // including the two-slot pair a union consumes.
 //
 // Layout. A message is a `table` unless it asked to be a `struct`, and a struct
-// that cannot be packed is an error rather than a silent downgrade. bufir's
+// that cannot be packed is an error rather than a silent downgrade. The IR's
 // layout pass owns the eligibility rules.
 //
 // Substitution. Maps, oneofs and the google.protobuf well-known types do not

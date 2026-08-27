@@ -14,13 +14,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
 // annotationHeader renders the `using` and annotation lines for one file, for
 // every language this run was told to support.
-func (r *run) annotationHeader(b *emit.Buf, f *bufir.File) {
+func (r *run) annotationHeader(b *emit.Buf, f *buffers.File) {
 	langs := make([]string, 0, len(r.annotations))
 	for lang := range r.annotations {
 		if _, ok := annotationSpecs[lang]; ok {
@@ -37,9 +38,9 @@ func (r *run) annotationHeader(b *emit.Buf, f *bufir.File) {
 			// `using` alone would add an unresolvable import for no benefit, so
 			// the omission is reported instead — a Go build that fails on
 			// "missing package annotation" is far less clear than this.
-			r.collect(&bufir.Diagnostic{
-				Rule: bufir.RuleTarget,
-				Node: bufir.NodeID(f.Path),
+			r.collect(&buffers.Diagnostic{
+				Rule: buffers.RuleTarget,
+				Node: buffers.NodeID(f.Path),
 				Message: fmt.Sprintf("capnp %s output was requested, but %s declares no %s; "+
 					"the generator will reject the emitted schema", lang, f.Path, missingOption(lang)),
 				Hint: fmt.Sprintf("add `option %s` to the .proto", missingOption(lang)),
@@ -78,7 +79,7 @@ func goImportPath(module, schemaPath string) string {
 
 // crossFile reports whether a file references a type declared elsewhere, which is
 // the only case where a missing $Go.import actually breaks the build.
-func (r *run) crossFile(f *bufir.File) bool {
+func (r *run) crossFile(f *buffers.File) bool {
 	for _, imp := range f.Imports {
 		if !strings.HasPrefix(imp, "google/protobuf/") {
 			return true
@@ -141,13 +142,13 @@ func normalizeLang(lang string) string {
 // What is worth doing is saying so here, because the alternative is the user
 // meeting `undefined: capnp` in generated code and having no reason to suspect
 // their own schema is fine.
-func (r *run) warnEnumOnlyGo(f *bufir.File, msgs []*bufir.Message, enums []*bufir.Enum, svcs []*bufir.Service) {
+func (r *run) warnEnumOnlyGo(f *buffers.File, msgs []*buffers.Message, enums []*buffers.Enum, svcs []*buffers.Service) {
 	if !r.annotations["go"] || len(enums) == 0 || len(msgs) > 0 || len(svcs) > 0 {
 		return
 	}
-	r.collect(&bufir.Diagnostic{
-		Rule: bufir.RuleLint,
-		Node: bufir.NodeID(f.Path),
+	r.collect(&buffers.Diagnostic{
+		Rule: buffers.RuleLint,
+		Node: buffers.NodeID(f.Path),
 		Message: fmt.Sprintf("%s declares only enums, and capnpc-go emits capnp.EnumList without the "+
 			"matching import for such a file — the generated Go will not compile (undefined: capnp)", f.Path),
 		Hint: "an upstream capnpc-go defect, not a problem with this schema; move one message into " +

@@ -3,26 +3,26 @@ package capnp
 import (
 	"fmt"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // scalar returns the Cap'n Proto spelling of a proto scalar kind, and whether the
 // kind is one.
-func scalar(k bufir.Kind) (string, bool) {
+func scalar(k buffers.Kind) (string, bool) {
 	switch k {
-	case bufir.KindDouble:
+	case buffers.KindDouble:
 		return "Float64", true
-	case bufir.KindFloat:
+	case buffers.KindFloat:
 		return "Float32", true
-	case bufir.KindInt32, bufir.KindSint32, bufir.KindSfixed32:
+	case buffers.KindInt32, buffers.KindSint32, buffers.KindSfixed32:
 		return "Int32", true
-	case bufir.KindUint32, bufir.KindFixed32:
+	case buffers.KindUint32, buffers.KindFixed32:
 		return "UInt32", true
-	case bufir.KindInt64, bufir.KindSint64, bufir.KindSfixed64:
+	case buffers.KindInt64, buffers.KindSint64, buffers.KindSfixed64:
 		return "Int64", true
-	case bufir.KindUint64, bufir.KindFixed64:
+	case buffers.KindUint64, buffers.KindFixed64:
 		return "UInt64", true
-	case bufir.KindBool:
+	case buffers.KindBool:
 		return "Bool", true
 	}
 	return "", false
@@ -35,8 +35,8 @@ func scalar(k bufir.Kind) (string, bool) {
 // to discover it by measuring.
 
 // fieldType returns the Cap'n Proto type for a field.
-func (r *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
-	if f.Kind == bufir.KindMap {
+func (r *run) fieldType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
+	if f.Kind == buffers.KindMap {
 		return "List(" + r.mapEntryName(f) + ")", nil
 	}
 	base, diag := r.baseType(f, from)
@@ -47,22 +47,22 @@ func (r *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagno
 }
 
 // baseType returns the element type, ignoring repeated-ness.
-func (r *run) baseType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
+func (r *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
 	if got, ok := scalar(f.Kind); ok {
 		return got, nil
 	}
 	switch f.Kind {
-	case bufir.KindString:
+	case buffers.KindString:
 		return "Text", nil
-	case bufir.KindBytes:
+	case buffers.KindBytes:
 		return "Data", nil
-	case bufir.KindEnum:
+	case buffers.KindEnum:
 		return r.qualify(f.Enum, from), nil
-	case bufir.KindMessage:
+	case buffers.KindMessage:
 		return r.messageType(f, from)
 	}
-	return "", &bufir.Diagnostic{
-		Rule:    bufir.RuleTarget,
+	return "", &buffers.Diagnostic{
+		Rule:    buffers.RuleTarget,
 		Node:    f.Node,
 		Message: fmt.Sprintf("no Cap'n Proto type for proto kind %s", f.Kind),
 	}

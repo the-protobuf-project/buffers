@@ -8,13 +8,14 @@ import (
 	"path"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 )
 
 // topLevel returns the file's emittable top-level messages.
-func topLevel(f *bufir.File) []*bufir.Message {
-	var out []*bufir.Message
+func topLevel(f *buffers.File) []*buffers.Message {
+	var out []*buffers.Message
 	for _, m := range f.Messages {
 		if m.Skip || m.IsMapEntry || !allows(m.Targets) {
 			continue
@@ -25,8 +26,8 @@ func topLevel(f *bufir.File) []*bufir.Message {
 }
 
 // topLevelEnums returns the file's emittable top-level enums.
-func topLevelEnums(f *bufir.File) []*bufir.Enum {
-	var out []*bufir.Enum
+func topLevelEnums(f *buffers.File) []*buffers.Enum {
+	var out []*buffers.Enum
 	for _, e := range f.Enums {
 		if !e.Skip {
 			out = append(out, e)
@@ -36,8 +37,8 @@ func topLevelEnums(f *bufir.File) []*bufir.Enum {
 }
 
 // emittableServices returns the services this target renders an interface for.
-func emittableServices(f *bufir.File) []*bufir.Service {
-	var out []*bufir.Service
+func emittableServices(f *buffers.File) []*buffers.Service {
+	var out []*buffers.Service
 	for _, s := range f.Services {
 		if s.Skip || !s.CapnpInterface || !allows(s.Targets) {
 			continue
@@ -48,11 +49,11 @@ func emittableServices(f *bufir.File) []*bufir.Service {
 }
 
 // ownerOf returns the file declaring a named type, for qualification.
-func (r *run) ownerOf(fullName string) *bufir.File {
-	if m := r.schema.Messages[bufir.NodeID(fullName)]; m != nil {
+func (r *run) ownerOf(fullName string) *buffers.File {
+	if m := r.schema.Messages[buffers.NodeID(fullName)]; m != nil {
 		return m.File
 	}
-	if e := r.schema.Enums[bufir.NodeID(fullName)]; e != nil {
+	if e := r.schema.Enums[buffers.NodeID(fullName)]; e != nil {
 		return e.File
 	}
 	return nil
@@ -60,7 +61,7 @@ func (r *run) ownerOf(fullName string) *bufir.File {
 
 // collect records a diagnostic, ignoring nil so callers can pass a projection's
 // result directly.
-func (r *run) collect(d *bufir.Diagnostic) {
+func (r *run) collect(d *buffers.Diagnostic) {
 	if d != nil {
 		r.diags = append(r.diags, *d)
 	}

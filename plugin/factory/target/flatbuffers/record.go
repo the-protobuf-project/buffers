@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
 // record renders one message as a table or a struct.
-func (r *run) record(b *emit.Buf, f *bufir.File, m *bufir.Message) error {
+func (r *run) record(b *emit.Buf, f *buffers.File, m *buffers.Message) error {
 	b.Doc("///", m.Doc)
-	if m.Layout == bufir.LayoutStruct {
+	if m.Layout == buffers.LayoutStruct {
 		return r.structBody(b, f, m)
 	}
 	return r.tableBody(b, f, m)
@@ -24,8 +25,8 @@ func (r *run) record(b *emit.Buf, f *bufir.File, m *bufir.Message) error {
 //
 // A struct carries no ids, no defaults and no attributes: its fields are
 // positional and all of them are always present. That is the whole trade, and it
-// is why bufir's layout pass has to have proved eligibility before we get here.
-func (r *run) structBody(b *emit.Buf, f *bufir.File, m *bufir.Message) error {
+// is why the IR's layout pass has to have proved eligibility before we get here.
+func (r *run) structBody(b *emit.Buf, f *buffers.File, m *buffers.Message) error {
 	var err error
 	b.Block(fmt.Sprintf("struct %s {", m.Name), "}", func() {
 		for _, field := range m.Fields {
@@ -42,7 +43,7 @@ func (r *run) structBody(b *emit.Buf, f *bufir.File, m *bufir.Message) error {
 }
 
 // tableBody renders an evolvable record, one line per planned slot.
-func (r *run) tableBody(b *emit.Buf, f *bufir.File, m *bufir.Message) error {
+func (r *run) tableBody(b *emit.Buf, f *buffers.File, m *buffers.Message) error {
 	attrs := ""
 	if m.OriginalOrder {
 		attrs = " (original_order)"
@@ -74,7 +75,7 @@ func (r *run) tableBody(b *emit.Buf, f *bufir.File, m *bufir.Message) error {
 }
 
 // attributes renders a table field's trailing attribute list.
-func (r *run) attributes(f *bufir.Field, id int32) string {
+func (r *run) attributes(f *buffers.Field, id int32) string {
 	attrs := []string{fmt.Sprintf("id: %d", id)}
 
 	// `required` is only legal on a field stored as an offset. Applying it to a
@@ -87,7 +88,7 @@ func (r *run) attributes(f *bufir.Field, id int32) string {
 	if f.Key {
 		attrs = append(attrs, "key")
 	}
-	if f.Shared && f.Kind == bufir.KindString {
+	if f.Shared && f.Kind == buffers.KindString {
 		attrs = append(attrs, "shared")
 	}
 
@@ -105,12 +106,12 @@ func (r *run) attributes(f *bufir.Field, id int32) string {
 
 // offsetTyped reports whether a field is stored as an offset rather than inline,
 // which is what `required` may be applied to.
-func offsetTyped(f *bufir.Field) bool {
-	if f.Repeated || f.Kind == bufir.KindMap {
+func offsetTyped(f *buffers.Field) bool {
+	if f.Repeated || f.Kind == buffers.KindMap {
 		return true
 	}
 	switch f.Kind {
-	case bufir.KindString, bufir.KindBytes, bufir.KindMessage:
+	case buffers.KindString, buffers.KindBytes, buffers.KindMessage:
 		return true
 	}
 	return false

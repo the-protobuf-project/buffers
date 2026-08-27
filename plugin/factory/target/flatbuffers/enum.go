@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
 // enum renders a proto enum.
-func (r *run) enum(b *emit.Buf, e *bufir.Enum) {
+func (r *run) enum(b *emit.Buf, e *buffers.Enum) {
 	b.Doc("///", e.Doc)
 
 	attrs := ""
@@ -42,8 +43,8 @@ func (r *run) enum(b *emit.Buf, e *bufir.Enum) {
 
 // withoutZero drops the AIP-126 zero value, which a bit_flags enum cannot have
 // because position 0 is a real bit.
-func withoutZero(values []*bufir.EnumValue) []*bufir.EnumValue {
-	out := make([]*bufir.EnumValue, 0, len(values))
+func withoutZero(values []*buffers.EnumValue) []*buffers.EnumValue {
+	out := make([]*buffers.EnumValue, 0, len(values))
 	for _, v := range values {
 		if v.Number == 0 {
 			continue
@@ -55,8 +56,8 @@ func withoutZero(values []*bufir.EnumValue) []*bufir.EnumValue {
 
 // fileFooter emits root_type, file_identifier and file_extension, in the order
 // flatc requires them.
-func (r *run) fileFooter(b *emit.Buf, f *bufir.File, msgs []*bufir.Message) {
-	var roots []*bufir.Message
+func (r *run) fileFooter(b *emit.Buf, f *buffers.File, msgs []*buffers.Message) {
+	var roots []*buffers.Message
 	for _, m := range msgs {
 		if m.FBSRoot {
 			roots = append(roots, m)
@@ -69,18 +70,18 @@ func (r *run) fileFooter(b *emit.Buf, f *bufir.File, msgs []*bufir.Message) {
 		for i, m := range roots {
 			names[i] = m.Name
 		}
-		r.collect(&bufir.Diagnostic{
-			Rule:    bufir.RuleTarget,
-			Node:    bufir.NodeID(f.Path),
+		r.collect(&buffers.Diagnostic{
+			Rule:    buffers.RuleTarget,
+			Node:    buffers.NodeID(f.Path),
 			Message: fmt.Sprintf("%d messages set (buffers.v1.message).fbs_root (%s); a .fbs has one root_type", len(roots), strings.Join(names, ", ")),
 			Hint:    "keep fbs_root on the message that is actually the payload and remove it from the others",
 		})
 		return
 	case len(roots) == 0:
 		if f.Identifier != "" {
-			r.collect(&bufir.Diagnostic{
-				Rule:    bufir.RuleTarget,
-				Node:    bufir.NodeID(f.Path),
+			r.collect(&buffers.Diagnostic{
+				Rule:    buffers.RuleTarget,
+				Node:    buffers.NodeID(f.Path),
 				Message: "file_id is set but no message sets (buffers.v1.message).fbs_root; flatc rejects a file_identifier without a root_type",
 				Hint:    "mark the payload message with fbs_root, or clear file_id",
 			})

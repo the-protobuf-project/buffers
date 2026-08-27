@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // messageType projects a message-typed field, substituting the well-known types.
-func (r *run) messageType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
+func (r *run) messageType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
 	if wrapped, ok := f.WellKnown.Wrapper(); ok {
 		// A proto3 wrapper exists to express presence. Cap'n Proto gives every
 		// pointer field a natural absent state and every scalar a default, so the
@@ -24,36 +24,36 @@ func (r *run) messageType(f *bufir.Field, from *bufir.File) (string, *bufir.Diag
 			return got, nil
 		}
 		switch wrapped {
-		case bufir.KindString:
+		case buffers.KindString:
 			return "Text", nil
-		case bufir.KindBytes:
+		case buffers.KindBytes:
 			return "Data", nil
 		}
 	}
 
 	switch f.WellKnown {
-	case bufir.WKTimestamp:
+	case buffers.WKTimestamp:
 		r.needPrelude(preludeTimestamp)
 		return r.preludeRef("Timestamp"), nil
-	case bufir.WKDuration:
+	case buffers.WKDuration:
 		r.needPrelude(preludeDuration)
 		return r.preludeRef("Duration"), nil
-	case bufir.WKEmpty:
+	case buffers.WKEmpty:
 		// Cap'n Proto has Void, which is exactly "no value" and occupies no bits.
 		// Emitting an empty struct instead would allocate a pointer to say the
 		// same nothing.
 		return "Void", nil
-	case bufir.WKAny:
+	case buffers.WKAny:
 		r.needPrelude(preludeAny)
 		return r.preludeRef("Any"), nil
-	case bufir.WKFieldMask:
+	case buffers.WKFieldMask:
 		return "List(Text)", nil
-	case bufir.WKStruct, bufir.WKValue, bufir.WKListValue:
+	case buffers.WKStruct, buffers.WKValue, buffers.WKListValue:
 		// AnyPointer is Cap'n Proto's escape hatch and is the honest rendering:
 		// the schema genuinely does not know the shape. It is not a good outcome,
 		// so it is reported.
-		return "AnyPointer", &bufir.Diagnostic{
-			Rule: bufir.RuleTarget,
+		return "AnyPointer", &buffers.Diagnostic{
+			Rule: buffers.RuleTarget,
 			Node: f.Node,
 			Message: fmt.Sprintf("%s is dynamically typed; Cap'n Proto has no equivalent and the field "+
 				"is emitted as AnyPointer, which no generated accessor can interpret", f.WellKnown),
@@ -69,7 +69,7 @@ func (r *run) messageType(f *bufir.Field, from *bufir.File) (string, *bufir.Diag
 // declares for it — Cap'n Proto has no implicit cross-file scope — so this
 // returns `Geometry.Vector3` where FlatBuffers would have used a dotted
 // namespace. imports.go owns the aliases.
-func (r *run) qualify(fullName string, from *bufir.File) string {
+func (r *run) qualify(fullName string, from *buffers.File) string {
 	owner := r.ownerOf(fullName)
 	local := typeName(shortName(fullName))
 
@@ -89,13 +89,13 @@ func (r *run) qualify(fullName string, from *bufir.File) string {
 // nestedPath renders a nested type's dotted path within its file, or "" when the
 // type is top-level.
 func (r *run) nestedPath(fullName string) string {
-	msg := r.schema.Messages[bufir.NodeID(fullName)]
+	msg := r.schema.Messages[buffers.NodeID(fullName)]
 	var pkg string
 	switch {
 	case msg != nil:
 		pkg = msg.Package
 	default:
-		e := r.schema.Enums[bufir.NodeID(fullName)]
+		e := r.schema.Enums[buffers.NodeID(fullName)]
 		if e == nil {
 			return ""
 		}
@@ -114,7 +114,7 @@ func (r *run) nestedPath(fullName string) string {
 }
 
 // mapEntryName is the generated entry struct's name for a map field.
-func (r *run) mapEntryName(f *bufir.Field) string {
+func (r *run) mapEntryName(f *buffers.Field) string {
 	owner := shortName(parentOf(string(f.Node)))
 	return typeName(owner) + typeName(f.Name) + "Entry"
 }

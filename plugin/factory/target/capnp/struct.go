@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
 // structOf renders a message, its nested types, and the entry structs its map
 // fields need.
-func (r *run) structOf(b *emit.Buf, f *bufir.File, m *bufir.Message) {
+func (r *run) structOf(b *emit.Buf, f *buffers.File, m *buffers.Message) {
 	b.Doc("#", m.Doc)
-	if m.Layout == bufir.LayoutStruct {
+	if m.Layout == buffers.LayoutStruct {
 		b.Line("# Declared LAYOUT_STRUCT. Cap'n Proto has no table/struct distinction —")
 		b.Line("# every struct is already a flat, fixed-offset record — so the layout option")
 		b.Line("# changes nothing here. It is honoured by the FlatBuffers target.")
@@ -46,11 +47,11 @@ func (r *run) structOf(b *emit.Buf, f *bufir.File, m *bufir.Message) {
 
 // structFields renders a struct's fields, unions and reserved placeholders in
 // ordinal order, then checks the result is a legal Cap'n Proto ordinal space.
-func (r *run) structFields(b *emit.Buf, f *bufir.File, m *bufir.Message) {
+func (r *run) structFields(b *emit.Buf, f *buffers.File, m *buffers.Message) {
 	type entry struct {
 		ordinal int32
-		field   *bufir.Field
-		slot    *bufir.Slot
+		field   *buffers.Field
+		slot    *buffers.Slot
 	}
 
 	entries := make([]entry, 0, len(m.Fields)+len(m.Reserved))
@@ -102,7 +103,7 @@ func (r *run) structFields(b *emit.Buf, f *bufir.File, m *bufir.Message) {
 }
 
 // field renders one ordinary field.
-func (r *run) field(b *emit.Buf, f *bufir.File, fl *bufir.Field) {
+func (r *run) field(b *emit.Buf, f *buffers.File, fl *buffers.Field) {
 	typ, diag := r.fieldType(fl, f)
 	r.collect(diag)
 
@@ -122,7 +123,7 @@ func (r *run) field(b *emit.Buf, f *bufir.File, fl *bufir.Field) {
 // capnp enforces this itself, but its message names a line in a generated file
 // and this one names the message and the missing ordinal. The check can only fail
 // when explicit pins are in play; derivation is dense by construction.
-func (r *run) checkContiguous(m *bufir.Message, used map[int32]bool) {
+func (r *run) checkContiguous(m *buffers.Message, used map[int32]bool) {
 	if len(used) == 0 {
 		return
 	}
@@ -141,8 +142,8 @@ func (r *run) checkContiguous(m *bufir.Message, used map[int32]bool) {
 	if len(missing) == 0 {
 		return
 	}
-	r.collect(&bufir.Diagnostic{
-		Rule: bufir.RuleOrdinal,
+	r.collect(&buffers.Diagnostic{
+		Rule: buffers.RuleOrdinal,
 		Node: m.Node,
 		Message: fmt.Sprintf("Cap'n Proto requires ordinals 0..%d with no gaps; %v %s unused",
 			maxOrd, missing, plural(len(missing))),

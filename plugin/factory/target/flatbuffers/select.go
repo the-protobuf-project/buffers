@@ -8,17 +8,18 @@ import (
 	"path"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 )
 
 // emittable returns the file's messages that this target renders, flattening
 // nested messages — FlatBuffers has no nesting, so a nested proto message becomes
 // a sibling type.
-func (r *run) emittable(f *bufir.File) []*bufir.Message {
-	var out []*bufir.Message
-	var walk func(msgs []*bufir.Message)
-	walk = func(msgs []*bufir.Message) {
+func (r *run) emittable(f *buffers.File) []*buffers.Message {
+	var out []*buffers.Message
+	var walk func(msgs []*buffers.Message)
+	walk = func(msgs []*buffers.Message) {
 		for _, m := range msgs {
 			// A map entry is never emitted as itself: mapEntries synthesizes a
 			// keyed replacement per map field instead.
@@ -34,10 +35,10 @@ func (r *run) emittable(f *bufir.File) []*bufir.Message {
 
 // emittableEnums returns the file's enums, nested ones included, since
 // FlatBuffers has no nesting.
-func (r *run) emittableEnums(f *bufir.File) []*bufir.Enum {
-	var out []*bufir.Enum
-	var walk func(msgs []*bufir.Message)
-	walk = func(msgs []*bufir.Message) {
+func (r *run) emittableEnums(f *buffers.File) []*buffers.Enum {
+	var out []*buffers.Enum
+	var walk func(msgs []*buffers.Message)
+	walk = func(msgs []*buffers.Message) {
 		for _, m := range msgs {
 			for _, e := range m.Enums {
 				if !e.Skip {
@@ -59,27 +60,27 @@ func (r *run) emittableEnums(f *bufir.File) []*bufir.Enum {
 // topoSort orders structs so that a struct is declared after every struct it
 // embeds. A FlatBuffers struct is laid out inline, so its size depends on theirs.
 //
-// The graph is acyclic by construction: bufir's layout pass refuses to pack a
+// The graph is acyclic by construction: the IR's layout pass refuses to pack a
 // message that transitively contains itself.
-func (r *run) topoSort(structs []*bufir.Message) []*bufir.Message {
-	index := map[bufir.NodeID]*bufir.Message{}
+func (r *run) topoSort(structs []*buffers.Message) []*buffers.Message {
+	index := map[buffers.NodeID]*buffers.Message{}
 	for _, m := range structs {
 		index[m.Node] = m
 	}
 
-	var out []*bufir.Message
-	done := map[bufir.NodeID]bool{}
-	var visit func(m *bufir.Message)
-	visit = func(m *bufir.Message) {
+	var out []*buffers.Message
+	done := map[buffers.NodeID]bool{}
+	var visit func(m *buffers.Message)
+	visit = func(m *buffers.Message) {
 		if done[m.Node] {
 			return
 		}
 		done[m.Node] = true
 		for _, f := range m.Fields {
-			if f.Kind != bufir.KindMessage {
+			if f.Kind != buffers.KindMessage {
 				continue
 			}
-			if dep, ok := index[bufir.NodeID(f.Message)]; ok {
+			if dep, ok := index[buffers.NodeID(f.Message)]; ok {
 				visit(dep)
 			}
 		}
@@ -92,9 +93,9 @@ func (r *run) topoSort(structs []*bufir.Message) []*bufir.Message {
 }
 
 // split partitions messages into packed structs and evolvable tables.
-func split(msgs []*bufir.Message) (structs, tables []*bufir.Message) {
+func split(msgs []*buffers.Message) (structs, tables []*buffers.Message) {
 	for _, m := range msgs {
-		if m.Layout == bufir.LayoutStruct {
+		if m.Layout == buffers.LayoutStruct {
 			structs = append(structs, m)
 			continue
 		}
@@ -104,11 +105,11 @@ func split(msgs []*bufir.Message) (structs, tables []*bufir.Message) {
 }
 
 // ownerOf returns the file declaring a named type, for namespace qualification.
-func (r *run) ownerOf(fullName string) *bufir.File {
-	if m := r.schema.Messages[bufir.NodeID(fullName)]; m != nil {
+func (r *run) ownerOf(fullName string) *buffers.File {
+	if m := r.schema.Messages[buffers.NodeID(fullName)]; m != nil {
 		return m.File
 	}
-	if e := r.schema.Enums[bufir.NodeID(fullName)]; e != nil {
+	if e := r.schema.Enums[buffers.NodeID(fullName)]; e != nil {
 		return e.File
 	}
 	return nil
@@ -116,7 +117,7 @@ func (r *run) ownerOf(fullName string) *bufir.File {
 
 // collect records a diagnostic, ignoring nil so callers can pass a projection's
 // result directly.
-func (r *run) collect(d *bufir.Diagnostic) {
+func (r *run) collect(d *buffers.Diagnostic) {
 	if d != nil {
 		r.diags = append(r.diags, *d)
 	}

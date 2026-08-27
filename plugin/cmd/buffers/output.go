@@ -10,7 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -38,7 +39,7 @@ func diskSink(dir string, dryRun bool, cmd *cobra.Command) (emit.Sink, *int) {
 // is one ledger and every target read the same model to produce it. Writing it
 // per target would have the last one win and make the file's contents depend on
 // config ordering.
-func writeLock(cmd *cobra.Command, schema *bufir.Schema, path string, dryRun bool) error {
+func writeLock(cmd *cobra.Command, schema *buffers.Schema, path string, dryRun bool) error {
 	if path == "" || schema.Lock == nil {
 		return nil
 	}
@@ -58,8 +59,8 @@ func writeLock(cmd *cobra.Command, schema *bufir.Schema, path string, dryRun boo
 
 // report prints diagnostics and fails on the ones the strictness spec makes
 // errors.
-func report(cmd *cobra.Command, schema *bufir.Schema, spec string) error {
-	strict, err := bufir.ParseStrict(spec)
+func report(cmd *cobra.Command, schema *buffers.Schema, spec string) error {
+	strict, err := buffers.ParseStrict(spec)
 	if err != nil {
 		return err
 	}

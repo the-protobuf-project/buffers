@@ -11,7 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/names"
 )
@@ -32,14 +33,14 @@ type topic struct {
 
 // service renders one .srv per call method, and records every publication for the
 // topic manifest.
-func (r *run) service(f *bufir.File, s *bufir.Service) error {
+func (r *run) service(f *buffers.File, s *buffers.Service) error {
 	for _, m := range s.Methods {
 		if m.Skip || !allows(m.Targets) {
 			continue
 		}
 
 		switch m.Transport {
-		case bufir.TransportTopic:
+		case buffers.TransportTopic:
 			payload := "std_msgs/Empty"
 			if m.Output != nil {
 				payload = r.qualify(r.messageRosName(string(m.Output.Node)), f)
@@ -53,9 +54,9 @@ func (r *run) service(f *bufir.File, s *bufir.Service) error {
 			})
 			continue
 
-		case bufir.TransportAction:
-			r.collect(&bufir.Diagnostic{
-				Rule: bufir.RuleTarget,
+		case buffers.TransportAction:
+			r.collect(&buffers.Diagnostic{
+				Rule: buffers.RuleTarget,
 				Node: m.Node,
 				Message: "TRANSPORT_ACTION needs a goal, result and feedback payload, which is derivable " +
 					"only from an AIP-151 long-running method returning google.longrunning.Operation",
@@ -81,7 +82,7 @@ func (r *run) service(f *bufir.File, s *bufir.Service) error {
 // caller expects — `GetSensor.Request.name`, not `GetSensor.Request.request.name`
 // — and the wrapper messages are still emitted as .msg files for anyone who wants
 // them.
-func (r *run) srv(f *bufir.File, s *bufir.Service, m *bufir.Method) error {
+func (r *run) srv(f *buffers.File, s *buffers.Service, m *buffers.Method) error {
 	var b emit.Buf
 	b.Raw(r.banner(f.Path))
 	b.Line("")
@@ -100,7 +101,7 @@ func (r *run) srv(f *bufir.File, s *bufir.Service, m *bufir.Method) error {
 	// without one does not parse. It is the only place this repository emits
 	// that sequence.
 	b.Line("---")
-	if m.Output != nil && m.Output.WellKnown != bufir.WKEmpty {
+	if m.Output != nil && m.Output.WellKnown != buffers.WKEmpty {
 		r.fields(&b, f, m.Output)
 	}
 
@@ -113,7 +114,7 @@ func (r *run) srv(f *bufir.File, s *bufir.Service, m *bufir.Method) error {
 // launch files and in code — so a schema-derived list is the only place the
 // binding is written down. It is also what the eventual eCAL publisher and
 // subscriber generation reads, since an eCAL channel is the same idea.
-func (r *run) manifest(schema *bufir.Schema) error {
+func (r *run) manifest(schema *buffers.Schema) error {
 	if len(r.topics) == 0 {
 		return nil
 	}

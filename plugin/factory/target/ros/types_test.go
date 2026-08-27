@@ -3,7 +3,7 @@ package ros
 import (
 	"testing"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // types_test.go covers the ROS field-name sanitizer and the bounds that become
@@ -101,7 +101,7 @@ func TestQualifyOmitsTheOwnPackage(t *testing.T) {
 	// qualifying is legal and reads badly; never qualifying does not compile
 	// across packages.
 	r := &run{}
-	file := &bufir.File{ROSPackage: "sensors_msgs"}
+	file := &buffers.File{ROSPackage: "sensors_msgs"}
 
 	if got := r.qualify(rosName{Package: "sensors_msgs", Type: "Pose"}, file); got != "Pose" {
 		t.Errorf("same-package reference = %q, want the bare type", got)

@@ -6,7 +6,7 @@
 // proto/DB world and a GraphQL world that genuinely do not share a
 // representation, so its Model carries whichever the Source populated. buffers
 // has one input shape, and pretending otherwise by flattening some future second
-// source into bufir.Schema now would be inventing a god-IR before there is a
+// source into buffers.Schema now would be inventing a god-IR before there is a
 // second source to disagree with it.
 //
 // What the wrapper buys in the meantime is the factory's orchestration: one
@@ -14,7 +14,7 @@
 // when an eCAL or a live-schema source arrives.
 package coreir
 
-import "github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+import "github.com/the-protobuf-project/protokit/buffers"
 
 // Model is the unit of work handed from a Source to a Target.
 type Model struct {
@@ -24,5 +24,5 @@ type Model struct {
 	// The whole graph travels rather than its files alone, because a target needs
 	// the indexes to resolve anything: a field's type is a full proto name, and
 	// turning that into a Cap'n Proto type reference means looking it up.
-	Schema *bufir.Schema
+	Schema *buffers.Schema
 }

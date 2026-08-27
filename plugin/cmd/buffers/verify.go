@@ -6,9 +6,9 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"github.com/the-protobuf-project/protokit/buffers"
 	"github.com/the-protobuf-project/protokit/factory"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/config"
 	"github.com/the-protobuf-project/buffers/plugin/factory/registry"
 	"github.com/the-protobuf-project/buffers/plugin/factory/source/protofile"
@@ -64,7 +64,7 @@ func verify(cmd *cobra.Command, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	before, err := bufir.ParseLock(committed, cfg.Lock)
+	before, err := buffers.ParseLock(committed, cfg.Lock)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func verify(cmd *cobra.Command, cfg *config.Config) error {
 	// derivation and the rebuilt ledger matches. That is the point: what this
 	// compares is whether the *set* of recorded slots changed — a field added or
 	// removed — not whether derivation alone would have agreed.
-	src := registry.New(nil, bufir.Options{Strict: cfg.Strict, LockPath: cfg.Lock},
+	src := registry.New(nil, buffers.Options{Strict: cfg.Strict, LockPath: cfg.Lock},
 		provenanceInfo(), registry.Options{}).Sources["proto"]
 	model, err := src.Build(factory.Ctx{Plugin: plugin})
 	if err != nil {
@@ -113,10 +113,10 @@ func verify(cmd *cobra.Command, cfg *config.Config) error {
 // and one that did not. Both change the ledger and both require a regenerate, but
 // only the first is a wire break — the second means the author did reserve the
 // slot, and telling them to reserve it would be wrong.
-func diffLocks(before, after *bufir.Lock) []string {
+func diffLocks(before, after *buffers.Lock) []string {
 	var out []string
 
-	beforeFields := map[bufir.NodeID]map[int32]int32{}
+	beforeFields := map[buffers.NodeID]map[int32]int32{}
 	for _, m := range before.Messages {
 		slots := map[int32]int32{}
 		for _, f := range m.Fields {
@@ -175,7 +175,7 @@ func diffLocks(before, after *bufir.Lock) []string {
 		delete(beforeFields, m.Node)
 	}
 
-	nodes := make([]bufir.NodeID, 0, len(beforeFields))
+	nodes := make([]buffers.NodeID, 0, len(beforeFields))
 	for node := range beforeFields {
 		nodes = append(nodes, node)
 	}

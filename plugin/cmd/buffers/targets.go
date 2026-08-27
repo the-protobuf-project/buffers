@@ -9,7 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/config"
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 	"github.com/the-protobuf-project/buffers/plugin/factory/registry"
@@ -23,7 +24,7 @@ func targetsCmd() *cobra.Command {
 		Use:   "targets",
 		Short: "List the targets, their languages, and which toolchains are installed",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			reg := registry.New(nil, bufir.Options{}, provenance.Info{}, registry.Options{})
+			reg := registry.New(nil, buffers.Options{}, provenance.Info{}, registry.Options{})
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "TARGET\tSCHEMA\tTOOLCHAIN\tLANGUAGES")

@@ -10,10 +10,10 @@
 // Identity. Every file, struct, enum and interface carries an explicit 64-bit ID
 // so that regenerating an unchanged .proto produces a byte-identical .capnp.
 // Leaving them out would make capnp mint them, and its derivation is not this
-// plugin's to depend on. See bufir/capnpid.go.
+// plugin's to depend on. See protokit's buffers/capnpid.go.
 //
 // Ordinals. Cap'n Proto requires a struct's ordinals to run 0..N-1 with no gaps
-// and no repeats, counting union members. bufir's assignment already produces
+// and no repeats, counting union members. the IR's assignment already produces
 // exactly that; this target verifies it before emitting, because a violation is a
 // capnp parse error and the message naming the field is more useful than the one
 // naming the line.

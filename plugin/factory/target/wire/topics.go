@@ -12,7 +12,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/names"
@@ -41,7 +42,7 @@ func (r *run) topics() error {
 				continue
 			}
 			for _, m := range s.Methods {
-				if m.Transport != bufir.TransportTopic || m.Skip || !allows(m.Targets) {
+				if m.Transport != buffers.TransportTopic || m.Skip || !allows(m.Targets) {
 					continue
 				}
 				typ := "Unit"
@@ -97,10 +98,10 @@ func (r *run) topics() error {
 }
 
 // flattenMessages returns every message a file declares, nested ones included.
-func flattenMessages(f *bufir.File) []*bufir.Message {
-	var out []*bufir.Message
-	var walk func(msgs []*bufir.Message)
-	walk = func(msgs []*bufir.Message) {
+func flattenMessages(f *buffers.File) []*buffers.Message {
+	var out []*buffers.Message
+	var walk func(msgs []*buffers.Message)
+	walk = func(msgs []*buffers.Message) {
 		for _, m := range msgs {
 			if !m.Skip && !m.IsMapEntry && allows(m.Targets) {
 				out = append(out, m)
@@ -114,7 +115,7 @@ func flattenMessages(f *bufir.File) []*bufir.Message {
 
 // collect records a diagnostic, ignoring nil so callers can pass a projection's
 // result directly.
-func (r *run) collect(d *bufir.Diagnostic) {
+func (r *run) collect(d *buffers.Diagnostic) {
 	if d != nil {
 		r.diags = append(r.diags, *d)
 	}

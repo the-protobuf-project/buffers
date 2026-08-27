@@ -44,7 +44,7 @@ type Config struct {
 
 	// Lock is the ordinal ledger's path, relative to the config file. Empty
 	// disables it, which gives up slot stability across runs; see
-	// plugin/factory/bufir/lock.go for what that costs.
+	// protokit's buffers/lock.go for what that costs.
 	Lock string `yaml:"lock"`
 
 	// Strict is the per-rule severity spec, spelled as in the plugin's

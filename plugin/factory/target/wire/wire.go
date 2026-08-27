@@ -32,9 +32,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/the-protobuf-project/protokit/buffers"
 	"github.com/the-protobuf-project/protokit/factory"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/coreir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
@@ -103,11 +103,11 @@ func (t *Target) supports(lang string) bool {
 type run struct {
 	*Target
 	// schema is the graph being rendered.
-	schema *bufir.Schema
+	schema *buffers.Schema
 	// lang is the language the build block is written for. Unlike the other
 	// targets, this one's output *is* build configuration, so a Kotlin run and a
 	// Java run genuinely differ.
 	lang string
 	// diags accumulates problems found while rendering.
-	diags []bufir.Diagnostic
+	diags []buffers.Diagnostic
 }

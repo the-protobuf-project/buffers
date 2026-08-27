@@ -13,7 +13,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -111,9 +112,9 @@ func (r *run) jvmPackages() []jvmPackage {
 			continue
 		}
 		if seen[f.Package] != f.JVMPackage {
-			r.collect(&bufir.Diagnostic{
-				Rule: bufir.RuleLint,
-				Node: bufir.NodeID(f.Package),
+			r.collect(&buffers.Diagnostic{
+				Rule: buffers.RuleLint,
+				Node: buffers.NodeID(f.Package),
 				Message: fmt.Sprintf("proto package %s maps to two JVM packages (%s and %s); Wire generates "+
 					"one package per proto package and the last one wins", f.Package, seen[f.Package], f.JVMPackage),
 				Hint: "set the same (buffers.v1.file).jvm_package on every file of the package",
@@ -149,7 +150,7 @@ func (r *run) roots() ([]string, map[string]string) {
 			// publication is part of the API surface in a way a reviewer scanning
 			// this list should see.
 			for _, m := range s.Methods {
-				if m.Transport == bufir.TransportTopic && m.Output != nil {
+				if m.Transport == buffers.TransportTopic && m.Output != nil {
 					why[string(m.Output.Node)] = fmt.Sprintf("payload of topic %q", m.Topic)
 				}
 			}

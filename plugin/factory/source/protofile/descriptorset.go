@@ -110,7 +110,7 @@ func newPlugin(set *descriptorpb.FileDescriptorSet, targets []string, parameter 
 // The synthetic value is passed as an M parameter, which is protogen's own
 // mechanism for supplying an import path out of band. It sets the file's
 // GoImportPath and leaves FileDescriptorProto.Options.GoPackage untouched — so
-// bufir, which reads the descriptor option directly, still sees the absence.
+// protokit's buffers IR, which reads the descriptor option directly, still sees the absence.
 // That matters: the Cap'n Proto target derives $Go.package from a real
 // go_package and warns when there is none, and a synthesized one would turn that
 // warning into a confidently wrong annotation.

@@ -8,16 +8,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 )
 
 // flattenMessages returns every message a file declares, nested ones included.
 // ROS has no nested types, so a nested proto message becomes its own file.
-func flattenMessages(f *bufir.File) []*bufir.Message {
-	var out []*bufir.Message
-	var walk func(msgs []*bufir.Message)
-	walk = func(msgs []*bufir.Message) {
+func flattenMessages(f *buffers.File) []*buffers.Message {
+	var out []*buffers.Message
+	var walk func(msgs []*buffers.Message)
+	walk = func(msgs []*buffers.Message) {
 		for _, m := range msgs {
 			if !m.Skip && !m.IsMapEntry && allows(m.Targets) {
 				out = append(out, m)
@@ -31,10 +32,10 @@ func flattenMessages(f *bufir.File) []*bufir.Message {
 
 // flattenEnums returns every enum a file declares, nested ones included, since
 // ROS has no nesting and each becomes its own file.
-func flattenEnums(f *bufir.File) []*bufir.Enum {
-	var out []*bufir.Enum
-	var walk func(msgs []*bufir.Message)
-	walk = func(msgs []*bufir.Message) {
+func flattenEnums(f *buffers.File) []*buffers.Enum {
+	var out []*buffers.Enum
+	var walk func(msgs []*buffers.Message)
+	walk = func(msgs []*buffers.Message) {
 		for _, m := range msgs {
 			for _, e := range m.Enums {
 				if !e.Skip {
@@ -54,8 +55,8 @@ func flattenEnums(f *bufir.File) []*bufir.Enum {
 }
 
 // liveArms returns a oneof's surviving arms in ordinal order.
-func liveArms(one *bufir.Oneof) []*bufir.Field {
-	arms := make([]*bufir.Field, 0, len(one.Fields))
+func liveArms(one *buffers.Oneof) []*buffers.Field {
+	arms := make([]*buffers.Field, 0, len(one.Fields))
 	for _, f := range one.Fields {
 		if f.Skip || !allows(f.Targets) {
 			continue
@@ -68,7 +69,7 @@ func liveArms(one *bufir.Oneof) []*bufir.Field {
 
 // collect records a diagnostic, ignoring nil so callers can pass a projection's
 // result directly.
-func (r *run) collect(d *bufir.Diagnostic) {
+func (r *run) collect(d *buffers.Diagnostic) {
 	if d != nil {
 		r.diags = append(r.diags, *d)
 	}

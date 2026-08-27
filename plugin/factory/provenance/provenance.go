@@ -66,5 +66,5 @@ func Render(c Comment, in Info) string {
 }
 
 // LedgerName is the ordinal ledger's conventional file name, named here so the
-// banner and the plugin agree without provenance importing bufir.
+// banner and the plugin agree without provenance importing buffers.
 const LedgerName = "buffers.lock"

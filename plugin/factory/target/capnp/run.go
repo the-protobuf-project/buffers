@@ -7,7 +7,8 @@ package capnp
 // otherwise interleave their alias tables and their prelude bookkeeping.
 
 import (
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -15,7 +16,7 @@ import (
 type run struct {
 	*Target
 	// schema is the graph being rendered.
-	schema *bufir.Schema
+	schema *buffers.Schema
 
 	// needed and fileNeeds track substituted well-known records for the run and
 	// for the file currently rendering. See the FlatBuffers target for why the
@@ -41,7 +42,7 @@ type run struct {
 	goModule string
 
 	// diags accumulates problems found while projecting types.
-	diags []bufir.Diagnostic
+	diags []buffers.Diagnostic
 }
 
 // sinkIface is a generated callback interface for a server-streaming method.
@@ -59,7 +60,7 @@ type sinkIface struct {
 }
 
 // file renders one .capnp, or nil when the file has nothing this target emits.
-func (r *run) file(f *bufir.File) ([]byte, error) {
+func (r *run) file(f *buffers.File) ([]byte, error) {
 	msgs := topLevel(f)
 	enums := topLevelEnums(f)
 	svcs := emittableServices(f)

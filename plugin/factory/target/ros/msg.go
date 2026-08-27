@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -17,16 +18,16 @@ import (
 type run struct {
 	*Target
 	// schema is the graph being rendered.
-	schema *bufir.Schema
+	schema *buffers.Schema
 	// topics accumulates publications for the manifest, which is the only
 	// schema-derived record of the topic-to-type binding.
 	topics []topic
 	// diags accumulates problems found while projecting types.
-	diags []bufir.Diagnostic
+	diags []buffers.Diagnostic
 }
 
 // file renders every artifact one proto file contributes.
-func (r *run) file(f *bufir.File) error {
+func (r *run) file(f *buffers.File) error {
 	for _, m := range flattenMessages(f) {
 		if err := r.message(f, m); err != nil {
 			return err
@@ -49,7 +50,7 @@ func (r *run) file(f *bufir.File) error {
 }
 
 // message renders one .msg file.
-func (r *run) message(f *bufir.File, m *bufir.Message) error {
+func (r *run) message(f *buffers.File, m *buffers.Message) error {
 	var b emit.Buf
 	b.Raw(r.banner(f.Path))
 	b.Line("")
@@ -69,7 +70,7 @@ func (r *run) message(f *bufir.File, m *bufir.Message) error {
 
 // fields renders a message's fields, its oneof discriminants, and the notes that
 // explain what ROS dropped.
-func (r *run) fields(b *emit.Buf, f *bufir.File, m *bufir.Message) {
+func (r *run) fields(b *emit.Buf, f *buffers.File, m *buffers.Message) {
 	// A oneof has no ROS form. The arms are emitted as ordinary fields alongside a
 	// constant block naming which one is set, which is the convention ROS users
 	// reach for — and is advisory: nothing prevents a writer setting two.
@@ -81,8 +82,8 @@ func (r *run) fields(b *emit.Buf, f *bufir.File, m *bufir.Message) {
 		if len(arms) == 0 {
 			continue
 		}
-		r.collect(&bufir.Diagnostic{
-			Rule: bufir.RuleTarget,
+		r.collect(&buffers.Diagnostic{
+			Rule: buffers.RuleTarget,
 			Node: one.Node,
 			Message: fmt.Sprintf("oneof %q has no ROS equivalent; its arms are emitted as ordinary fields "+
 				"with a %s_CASE constant block, and nothing enforces that only one is set",
@@ -126,9 +127,9 @@ func (r *run) fields(b *emit.Buf, f *bufir.File, m *bufir.Message) {
 }
 
 // mapEntries emits the entry message each map field is rewritten into.
-func (r *run) mapEntries(f *bufir.File, m *bufir.Message) error {
+func (r *run) mapEntries(f *buffers.File, m *buffers.Message) error {
 	for _, field := range m.Fields {
-		if field.Kind != bufir.KindMap || field.Skip || !allows(field.Targets) {
+		if field.Kind != buffers.KindMap || field.Skip || !allows(field.Targets) {
 			continue
 		}
 		keyType, diag := r.baseType(field.MapKey, f)
@@ -154,7 +155,7 @@ func (r *run) mapEntries(f *bufir.File, m *bufir.Message) error {
 }
 
 // enum renders a proto enum as its own constant-carrying message.
-func (r *run) enum(f *bufir.File, e *bufir.Enum) error {
+func (r *run) enum(f *buffers.File, e *buffers.Enum) error {
 	var b emit.Buf
 	b.Raw(r.banner(f.Path))
 	b.Line("")

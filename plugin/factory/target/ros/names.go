@@ -12,26 +12,27 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/names"
 )
 
 // messageType projects a message-typed field, substituting the well-known types.
-func (r *run) messageType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
+func (r *run) messageType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
 	if wrapped, ok := f.WellKnown.Wrapper(); ok {
 		// ROS has no optional. Unwrapping loses the presence the wrapper carried,
 		// which is worth saying once per field rather than never.
 		got, _ := scalar(wrapped)
 		if got == "" {
 			switch wrapped {
-			case bufir.KindString:
+			case buffers.KindString:
 				got = "string"
-			case bufir.KindBytes:
+			case buffers.KindBytes:
 				got = "uint8[]"
 			}
 		}
-		return got, &bufir.Diagnostic{
-			Rule: bufir.RuleLint,
+		return got, &buffers.Diagnostic{
+			Rule: buffers.RuleLint,
 			Node: f.Node,
 			Message: fmt.Sprintf("%s is unwrapped to %s; ROS has no optional, so a reader cannot "+
 				"distinguish an unset value from the zero value", f.WellKnown, got),
@@ -39,18 +40,18 @@ func (r *run) messageType(f *bufir.Field, from *bufir.File) (string, *bufir.Diag
 	}
 
 	switch f.WellKnown {
-	case bufir.WKTimestamp:
+	case buffers.WKTimestamp:
 		// An exact match: both are seconds plus nanoseconds since the Unix epoch.
 		return "builtin_interfaces/Time", nil
-	case bufir.WKDuration:
+	case buffers.WKDuration:
 		return "builtin_interfaces/Duration", nil
-	case bufir.WKFieldMask:
+	case buffers.WKFieldMask:
 		return "string[]", nil
-	case bufir.WKEmpty:
+	case buffers.WKEmpty:
 		return "std_msgs/Empty", nil
-	case bufir.WKAny, bufir.WKStruct, bufir.WKValue, bufir.WKListValue:
-		return "string", &bufir.Diagnostic{
-			Rule: bufir.RuleTarget,
+	case buffers.WKAny, buffers.WKStruct, buffers.WKValue, buffers.WKListValue:
+		return "string", &buffers.Diagnostic{
+			Rule: buffers.RuleTarget,
 			Node: f.Node,
 			Message: fmt.Sprintf("%s has no ROS equivalent; the field is emitted as a string "+
 				"carrying its JSON encoding", f.WellKnown),
@@ -62,7 +63,7 @@ func (r *run) messageType(f *bufir.Field, from *bufir.File) (string, *bufir.Diag
 
 // qualify renders a type reference. ROS names a type by package and type, and
 // omits the package within the same one.
-func (r *run) qualify(name rosName, from *bufir.File) string {
+func (r *run) qualify(name rosName, from *buffers.File) string {
 	if name.Package == "" || name.Package == from.ROSPackage {
 		return name.Type
 	}
@@ -83,7 +84,7 @@ type rosName struct {
 // enclosing names — Outer.Inner becomes OuterInner — which keeps two different
 // nested types from colliding on one file name.
 func (r *run) messageRosName(fullName string) rosName {
-	m := r.schema.Messages[bufir.NodeID(fullName)]
+	m := r.schema.Messages[buffers.NodeID(fullName)]
 	if m == nil {
 		return rosName{Type: names.Pascal(shortName(fullName))}
 	}
@@ -96,7 +97,7 @@ func (r *run) messageRosName(fullName string) rosName {
 // enumRosName returns the ROS name of a proto enum, which is emitted as its own
 // constant-carrying message.
 func (r *run) enumRosName(fullName string) rosName {
-	e := r.schema.Enums[bufir.NodeID(fullName)]
+	e := r.schema.Enums[buffers.NodeID(fullName)]
 	if e == nil {
 		return rosName{Type: names.Pascal(shortName(fullName))}
 	}
@@ -104,7 +105,7 @@ func (r *run) enumRosName(fullName string) rosName {
 }
 
 // mapEntryName is the generated entry message's name for a map field.
-func (r *run) mapEntryName(f *bufir.Field) string {
+func (r *run) mapEntryName(f *buffers.Field) string {
 	owner := shortName(parentOf(string(f.Node)))
 	return names.Pascal(owner) + names.Pascal(f.Name) + "Entry"
 }

@@ -48,7 +48,7 @@ things again.
 
 ```mermaid
 flowchart LR
-    P[".proto + AIP"] --> IR["bufir<br/>message graph<br/>+ stable slots"]
+    P[".proto + AIP"] --> IR["protokit buffers IR<br/>message graph<br/>+ stable slots"]
     L[("buffers.lock")] <--> IR
     IR --> FB[".fbs"]
     IR --> CP[".capnp + RPC"]
@@ -392,8 +392,8 @@ IR engine behind [store](https://github.com/the-protobuf-project/store) and
 protobuf/buffers/v1/     the buffers.v1 vocabulary (a BSR module)
 plugin/
   factory/
-    bufir/               the message graph + ordinal assignment + the ledger
     coreir/              the Source → Target model
+    vocab/               buffers.v1 → protokit's neutral annotation types
     source/proto/        descriptors → graph  (the plugin's path)
     source/protofile/    .proto or a descriptor set → graph  (the CLI's path)
     target/{flatbuffers,capnp,ros,wire}/
@@ -403,19 +403,26 @@ plugin/
   cmd/buffers/             the CLI — compiles protos, renders, drives toolchains
 ```
 
-**Why a new IR rather than protokit's.** protokit ships two frontends and this is
-neither. Its schema IR folds messages into databases and tables — right for a
-generator that stores things, wrong here: it keeps only resources and what is
-reachable from them, so a plain `Vector3` has no representation, while a `.fbs`
-that omits it does not compile. It also collapses the four 64-bit widths into one
-neutral type, which a database is right to do and a serialization schema is not.
-Its service IR is closer, but only materializes messages reachable from a method —
-and a `.proto` of pure messages with no service is the most common input a
-serialization plugin gets. A schema that disappears when you delete the service is
-not a schema.
+**Why a third IR rather than protokit's other two.** The message graph this
+plugin renders from lives in protokit as `protokit/buffers`, alongside the schema
+IR and the service IR. It is a third frontend rather than a use of either, because
+both fail for a serialization target in ways configuration cannot fix. The schema
+IR folds messages into databases and tables — right for a generator that stores
+things, wrong here: it keeps only resources and what is reachable from them, so a
+plain `Vector3` has no representation, while a `.fbs` that omits it does not
+compile. It also collapses the four 64-bit widths into one neutral type, which a
+database is right to do and a serialization schema is not. The service IR is
+closer, but only materializes messages reachable from a method — and a `.proto` of
+pure messages with no service is the most common input a serialization plugin
+gets. A schema that disappears when you delete the service is not a schema.
 
-What protokit still supplies: naming, the reproducible banner, the template
-helper, the manifest schema, and the factory's `Source`/`Target`/`Registry`.
+What stays in this repository is the vocabulary: `buffers.v1`, and the
+`plugin/factory/vocab` reader that spells it in protokit's neutral types. protokit
+imports no annotation module, so the options reach the IR through that seam rather
+than through an import.
+
+What protokit supplies beyond the IR: naming, the reproducible banner, the
+template helper, the manifest schema, and the factory's `Source`/`Target`/`Registry`.
 
 ## What it does not do
 

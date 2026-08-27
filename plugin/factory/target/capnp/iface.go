@@ -8,12 +8,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
 // enum renders a proto enum.
-func (r *run) enum(b *emit.Buf, e *bufir.Enum) {
+func (r *run) enum(b *emit.Buf, e *buffers.Enum) {
 	b.Doc("#", e.Doc)
 	if e.Underlying.Bits() != 16 {
 		b.Linef("# (buffers.v1.enumeration).underlying asked for %d bits. A Cap'n Proto enum is", e.Underlying.Bits())
@@ -27,7 +28,7 @@ func (r *run) enum(b *emit.Buf, e *bufir.Enum) {
 
 	// Cap'n Proto enumerants are positional, so they are emitted in ordinal order
 	// rather than proto declaration order.
-	values := make([]*bufir.EnumValue, 0, len(e.Values))
+	values := make([]*buffers.EnumValue, 0, len(e.Values))
 	for _, v := range e.Values {
 		if !v.Skip {
 			values = append(values, v)
@@ -35,7 +36,7 @@ func (r *run) enum(b *emit.Buf, e *bufir.Enum) {
 	}
 	sort.SliceStable(values, func(i, j int) bool { return values[i].Ordinal < values[j].Ordinal })
 
-	b.Block(fmt.Sprintf("enum %s @0x%016x {", typeName(e.Name), bufir.DeriveTypeID(string(e.Node))), "}", func() {
+	b.Block(fmt.Sprintf("enum %s @0x%016x {", typeName(e.Name), buffers.DeriveTypeID(string(e.Node))), "}", func() {
 		for _, v := range values {
 			b.Doc("#", v.Doc)
 			b.Linef("%s @%d;", enumerant(e.Name, v.Name), v.Ordinal)
@@ -44,7 +45,7 @@ func (r *run) enum(b *emit.Buf, e *bufir.Enum) {
 }
 
 // iface renders a proto service as a Cap'n Proto interface.
-func (r *run) iface(b *emit.Buf, f *bufir.File, s *bufir.Service) {
+func (r *run) iface(b *emit.Buf, f *buffers.File, s *buffers.Service) {
 	b.Doc("#", s.Doc)
 	b.Block(fmt.Sprintf("interface %s @0x%016x {", typeName(s.Name), s.CapnpID), "}", func() {
 		for i, m := range s.Methods {
@@ -62,14 +63,14 @@ func (r *run) iface(b *emit.Buf, f *bufir.File, s *bufir.Service) {
 }
 
 // method renders one RPC.
-func (r *run) method(b *emit.Buf, f *bufir.File, m *bufir.Method) {
+func (r *run) method(b *emit.Buf, f *buffers.File, m *buffers.Method) {
 	b.Doc("#", m.Doc)
 	if m.Pattern != "Custom" {
 		b.Linef("# AIP-%s standard method.", aipNumber(m.Pattern))
 	}
 
 	params := "()"
-	if m.Input != nil && m.Input.WellKnown != bufir.WKEmpty {
+	if m.Input != nil && m.Input.WellKnown != buffers.WKEmpty {
 		params = fmt.Sprintf("(request :%s)", r.qualify(string(m.Input.Node), f))
 	}
 
@@ -84,7 +85,7 @@ func (r *run) method(b *emit.Buf, f *bufir.File, m *bufir.Method) {
 		}
 		r.sinks = append(r.sinks, sinkIface{
 			Name:    sink,
-			ID:      bufir.DeriveTypeID(string(m.Node) + ".sink"),
+			ID:      buffers.DeriveTypeID(string(m.Node) + ".sink"),
 			Element: element,
 			Method:  m.Name,
 			Doc:     m.Doc,
@@ -101,7 +102,7 @@ func (r *run) method(b *emit.Buf, f *bufir.File, m *bufir.Method) {
 	}
 
 	results := "()"
-	if m.Output != nil && m.Output.WellKnown != bufir.WKEmpty {
+	if m.Output != nil && m.Output.WellKnown != buffers.WKEmpty {
 		results = fmt.Sprintf("(response :%s)", r.qualify(string(m.Output.Node), f))
 	}
 	b.Linef("%s @%d %s -> %s;", member(m.Name), m.Ordinal, params, results)

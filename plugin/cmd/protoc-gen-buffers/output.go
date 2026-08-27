@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // writeLock persists the ordinal ledger.
@@ -38,7 +38,7 @@ import (
 // file. It is an input to the next run as much as an output of this one, which is
 // exactly the property that makes go.sum something you commit rather than
 // something your build tool cleans.
-func writeLock(schema *bufir.Schema, path string) error {
+func writeLock(schema *buffers.Schema, path string) error {
 	if path == "" || schema.Lock == nil {
 		return nil
 	}
@@ -60,11 +60,11 @@ func writeLock(schema *bufir.Schema, path string) error {
 // reportDiagnostics prints the warnings a run chose not to fail on, and fails on
 // the rest.
 //
-// Targets add diagnostics during rendering, after bufir's own build has already
+// Targets add diagnostics during rendering, after the IR's own build has already
 // partitioned its own, so the severity check has to run again here — a target
 // that reports a `target:error` problem must still be able to fail the build.
-func reportDiagnostics(p *protogen.Plugin, schema *bufir.Schema, spec string) error {
-	strict, err := bufir.ParseStrict(spec)
+func reportDiagnostics(p *protogen.Plugin, schema *buffers.Schema, spec string) error {
+	strict, err := buffers.ParseStrict(spec)
 	if err != nil {
 		return err
 	}

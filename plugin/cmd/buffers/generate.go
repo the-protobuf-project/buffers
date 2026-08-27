@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/the-protobuf-project/protokit/buffers"
 	"github.com/the-protobuf-project/protokit/factory"
 	"github.com/the-protobuf-project/protokit/header"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/config"
 	"github.com/the-protobuf-project/buffers/plugin/factory/registry"
 	"github.com/the-protobuf-project/buffers/plugin/factory/source/protofile"
@@ -71,7 +71,7 @@ func generate(cmd *cobra.Command, cfg *config.Config, only []string, lang string
 		return err
 	}
 
-	opts := bufir.Options{Strict: cfg.Strict, LockPath: cfg.Lock}
+	opts := buffers.Options{Strict: cfg.Strict, LockPath: cfg.Lock}
 	info := provenanceInfo()
 
 	// The model is built once and rendered by every target. Rebuilding per target

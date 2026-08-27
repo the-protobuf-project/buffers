@@ -68,7 +68,7 @@ facets:
 #
 # buffers.lock is listed because it is a real output that a composing run must
 # not let a second plugin claim: it is the ordinal ledger, and two writers would
-# make it worthless. See plugin/factory/bufir/lock.go.
+# make it worthless. See protokit's buffers/lock.go.
 outputs:
   - '**/*.fbs'
   - '**/*.capnp'

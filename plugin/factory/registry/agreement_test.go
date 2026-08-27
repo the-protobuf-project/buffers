@@ -1,7 +1,7 @@
 package registry_test
 
 // agreement_test.go asserts the cross-target property, and the reason the ordinal
-// assignment lives in bufir rather than in each renderer.
+// assignment lives in protokit's buffers IR rather than in each renderer.
 //
 // Every target reads the same slot for a field. If FlatBuffers put one at id 4
 // and Cap'n Proto put it at @5, a payload written by one and read by the other
@@ -11,11 +11,11 @@ package registry_test
 import (
 	"testing"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // TestOrdinalsAgreeAcrossTargets is the cross-target property, and the reason the
-// ordinal assignment lives in bufir rather than in each renderer.
+// ordinal assignment lives in protokit's buffers IR rather than in each renderer.
 //
 // Every target reads the same slot for a field. If FlatBuffers put a field at id 4
 // and Cap'n Proto put it at @5, a payload written by one and read by the other
@@ -54,7 +54,7 @@ func TestLedgerRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	back, err := bufir.ParseLock(data, "test")
+	back, err := buffers.ParseLock(data, "test")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

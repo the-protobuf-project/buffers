@@ -24,7 +24,7 @@ go 1.26.4
 require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/spf13/cobra v1.10.2
-	github.com/the-protobuf-project/protokit v1.3.0
+	github.com/the-protobuf-project/protokit v1.3.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20260825221802-da73d73af1c5
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1

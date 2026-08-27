@@ -62,7 +62,7 @@ message Sensor {
   // Field 6 was `sample_period_ms`, removed in favour of a rate. Declaring it
   // reserved is not decoration: it is what keeps every later field on the
   // ordinal it already had, in every target this schema is compiled into. See
-  // plugin/factory/bufir/ordinal.go.
+  // protokit's buffers/ordinal.go.
   reserved 6;
 
   // name is the resource name, `robots/{robot}/sensors/{sensor}`.

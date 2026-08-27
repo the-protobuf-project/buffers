@@ -11,31 +11,31 @@ package flatbuffers
 import (
 	"testing"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // field builds a minimal field for planning.
-func field(name string, number, ordinal int32) *bufir.Field {
-	return &bufir.Field{
-		Node:    bufir.NodeID("m." + name),
+func field(name string, number, ordinal int32) *buffers.Field {
+	return &buffers.Field{
+		Node:    buffers.NodeID("m." + name),
 		Name:    name,
 		Number:  number,
 		Ordinal: ordinal,
-		Kind:    bufir.KindString,
+		Kind:    buffers.KindString,
 	}
 }
 
 // plan runs planSlots over a message with no schema behind it, which is all the
 // slot assignment needs.
-func plan(m *bufir.Message) []fbsSlot {
+func plan(m *buffers.Message) []fbsSlot {
 	r := &run{}
 	return r.planSlots(m)
 }
 
 func TestPlainFieldsTakeConsecutiveIds(t *testing.T) {
-	m := &bufir.Message{
+	m := &buffers.Message{
 		Name:   "M",
-		Fields: []*bufir.Field{field("a", 1, 0), field("b", 2, 1), field("c", 3, 2)},
+		Fields: []*buffers.Field{field("a", 1, 0), field("b", 2, 1), field("c", 3, 2)},
 	}
 
 	got := plan(m)
@@ -53,15 +53,15 @@ func TestUnionConsumesTwoIdsAndNamesTheSecond(t *testing.T) {
 	// flatc requires the hidden discriminant to take the id immediately before the
 	// value's when ids are explicit. So the union occupies a pair, and the id
 	// written into the schema is the second of them.
-	one := &bufir.Oneof{Node: "m.p", Name: "payload", UnionName: "MPayload"}
+	one := &buffers.Oneof{Node: "m.p", Name: "payload", UnionName: "MPayload"}
 	x, y := field("x", 2, 1), field("y", 3, 2)
 	x.Oneof, y.Oneof = one, one
-	one.Fields = []*bufir.Field{x, y}
+	one.Fields = []*buffers.Field{x, y}
 
-	m := &bufir.Message{
+	m := &buffers.Message{
 		Name:   "M",
-		Fields: []*bufir.Field{field("a", 1, 0), x, y, field("b", 4, 3)},
-		Oneofs: []*bufir.Oneof{one},
+		Fields: []*buffers.Field{field("a", 1, 0), x, y, field("b", 4, 3)},
+		Oneofs: []*buffers.Oneof{one},
 	}
 
 	got := plan(m)
@@ -87,10 +87,10 @@ func TestUnionConsumesTwoIdsAndNamesTheSecond(t *testing.T) {
 func TestReservedHoldsAnIdOpen(t *testing.T) {
 	// A removed field's slot must stay occupied, or every field after it shifts
 	// down one and existing readers misread them.
-	m := &bufir.Message{
+	m := &buffers.Message{
 		Name:     "M",
-		Fields:   []*bufir.Field{field("a", 1, 0), field("c", 3, 2)},
-		Reserved: []bufir.Slot{{Ordinal: 1, Number: 2}},
+		Fields:   []*buffers.Field{field("a", 1, 0), field("c", 3, 2)},
+		Reserved: []buffers.Slot{{Ordinal: 1, Number: 2}},
 	}
 
 	got := plan(m)
@@ -114,9 +114,9 @@ func TestSkippedFieldStillConsumesItsId(t *testing.T) {
 	skipped := field("b", 2, 1)
 	skipped.Skip = true
 
-	m := &bufir.Message{
+	m := &buffers.Message{
 		Name:   "M",
-		Fields: []*bufir.Field{field("a", 1, 0), skipped, field("c", 3, 2)},
+		Fields: []*buffers.Field{field("a", 1, 0), skipped, field("c", 3, 2)},
 	}
 
 	got := plan(m)

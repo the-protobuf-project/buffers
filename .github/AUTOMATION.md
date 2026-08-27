@@ -91,6 +91,6 @@ Tagging `v*` triggers two workflows:
 Both need secrets that are not set yet:
 
 - `HOMEBREW_TAP_GITHUB_TOKEN` — a PAT with `repo` scope on `the-protobuf-project/homebrew-tap`
-- `BUF_TOKEN` — a BSR token with write access to the organization
+- `BCR_PUBLISH_TOKEN` — a BSR token with write access to the organization
 
 Add them under Settings → Secrets and variables → Actions.

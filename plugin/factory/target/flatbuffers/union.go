@@ -12,15 +12,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/names"
 )
 
 // mapEntries emits the keyed entry table each map field is rewritten into.
-func (r *run) mapEntries(b *emit.Buf, f *bufir.File, m *bufir.Message) {
+func (r *run) mapEntries(b *emit.Buf, f *buffers.File, m *buffers.Message) {
 	for _, field := range m.Fields {
-		if field.Kind != bufir.KindMap || field.Skip || !allows(field.Targets) {
+		if field.Kind != buffers.KindMap || field.Skip || !allows(field.Targets) {
 			continue
 		}
 		keyType, diag := r.baseType(field.MapKey, f)
@@ -51,7 +52,7 @@ func (r *run) mapEntries(b *emit.Buf, f *bufir.File, m *bufir.Message) {
 // struct — gets a one-field wrapper. Wrapping structs too is deliberate: newer
 // flatc accepts a struct arm, older ones do not, and a schema that compiles
 // everywhere is worth one indirection on an arm nobody reads in a hot loop.
-func (r *run) unionTypes(b *emit.Buf, f *bufir.File, m *bufir.Message) {
+func (r *run) unionTypes(b *emit.Buf, f *buffers.File, m *buffers.Message) {
 	for _, one := range m.Oneofs {
 		if one.Skip {
 			continue
@@ -90,12 +91,12 @@ func (r *run) unionTypes(b *emit.Buf, f *bufir.File, m *bufir.Message) {
 
 // armIsTable reports whether a oneof arm already refers to a table, and its
 // FlatBuffers name if so.
-func (r *run) armIsTable(arm *bufir.Field) (string, bool) {
-	if arm.Kind != bufir.KindMessage || arm.Repeated || arm.WellKnown != bufir.WKNone {
+func (r *run) armIsTable(arm *buffers.Field) (string, bool) {
+	if arm.Kind != buffers.KindMessage || arm.Repeated || arm.WellKnown != buffers.WKNone {
 		return "", false
 	}
-	target := r.schema.Messages[bufir.NodeID(arm.Message)]
-	if target == nil || target.Layout != bufir.LayoutTable {
+	target := r.schema.Messages[buffers.NodeID(arm.Message)]
+	if target == nil || target.Layout != buffers.LayoutTable {
 		return "", false
 	}
 	return r.qualify(arm.Message, target.File), true

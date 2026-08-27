@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // annotationSpec describes one language's annotation requirements.
@@ -19,7 +19,7 @@ type annotationSpec struct {
 
 	// Render writes the file-level annotation lines for one file, or returns
 	// false when the file lacks what the language needs.
-	Render func(*run, *bufir.File) ([]string, bool)
+	Render func(*run, *buffers.File) ([]string, bool)
 }
 
 // annotationSpecs is the set of languages whose generators need annotations.
@@ -33,7 +33,7 @@ var annotationSpecs = map[string]annotationSpec{
 	"go": {
 		Alias:  "Go",
 		Import: "/go.capnp",
-		Render: func(r *run, f *bufir.File) ([]string, bool) {
+		Render: func(r *run, f *buffers.File) ([]string, bool) {
 			pkg := f.GoPackage
 			if pkg == "" {
 				return nil, false
@@ -53,9 +53,9 @@ var annotationSpecs = map[string]annotationSpec{
 			if r.goModule != "" {
 				lines = append(lines, fmt.Sprintf("$Go.import(%q);", goImportPath(r.goModule, f.Path)))
 			} else if r.crossFile(f) {
-				r.collect(&bufir.Diagnostic{
-					Rule: bufir.RuleTarget,
-					Node: bufir.NodeID(f.Path),
+				r.collect(&buffers.Diagnostic{
+					Rule: buffers.RuleTarget,
+					Node: buffers.NodeID(f.Path),
 					Message: fmt.Sprintf("%s references types in another file, and capnp Go output was "+
 						"requested without go_module; capnpc-go will emit an import path it cannot resolve", f.Path),
 					Hint: "set go_module to the Go module the generated capnp code will live in " +
@@ -68,7 +68,7 @@ var annotationSpecs = map[string]annotationSpec{
 	"java": {
 		Alias:  "Java",
 		Import: "/capnp/java.capnp",
-		Render: func(_ *run, f *bufir.File) ([]string, bool) {
+		Render: func(_ *run, f *buffers.File) ([]string, bool) {
 			if f.JVMPackage == "" {
 				return nil, false
 			}

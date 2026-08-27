@@ -3,26 +3,26 @@ package ros
 import (
 	"fmt"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
 )
 
 // scalar returns the ROS spelling of a proto scalar kind, and whether the kind
 // is one.
-func scalar(k bufir.Kind) (string, bool) {
+func scalar(k buffers.Kind) (string, bool) {
 	switch k {
-	case bufir.KindDouble:
+	case buffers.KindDouble:
 		return "float64", true
-	case bufir.KindFloat:
+	case buffers.KindFloat:
 		return "float32", true
-	case bufir.KindInt32, bufir.KindSint32, bufir.KindSfixed32:
+	case buffers.KindInt32, buffers.KindSint32, buffers.KindSfixed32:
 		return "int32", true
-	case bufir.KindUint32, bufir.KindFixed32:
+	case buffers.KindUint32, buffers.KindFixed32:
 		return "uint32", true
-	case bufir.KindInt64, bufir.KindSint64, bufir.KindSfixed64:
+	case buffers.KindInt64, buffers.KindSint64, buffers.KindSfixed64:
 		return "int64", true
-	case bufir.KindUint64, bufir.KindFixed64:
+	case buffers.KindUint64, buffers.KindFixed64:
 		return "uint64", true
-	case bufir.KindBool:
+	case buffers.KindBool:
 		return "bool", true
 	}
 	return "", false
@@ -30,21 +30,21 @@ func scalar(k bufir.Kind) (string, bool) {
 
 // width returns the ROS integer type holding an enum's declared underlying
 // width. ROS constants are typed, and this is the type the constant block uses.
-func width(w bufir.IntWidth) string {
+func width(w buffers.IntWidth) string {
 	switch w {
-	case bufir.IntWidthInt8:
+	case buffers.IntWidthInt8:
 		return "int8"
-	case bufir.IntWidthUint8:
+	case buffers.IntWidthUint8:
 		return "uint8"
-	case bufir.IntWidthInt16:
+	case buffers.IntWidthInt16:
 		return "int16"
-	case bufir.IntWidthUint16:
+	case buffers.IntWidthUint16:
 		return "uint16"
-	case bufir.IntWidthUint32:
+	case buffers.IntWidthUint32:
 		return "uint32"
-	case bufir.IntWidthInt64:
+	case buffers.IntWidthInt64:
 		return "int64"
-	case bufir.IntWidthUint64:
+	case buffers.IntWidthUint64:
 		return "uint64"
 	}
 	return "int32"
@@ -52,8 +52,8 @@ func width(w bufir.IntWidth) string {
 
 // fieldType returns the ROS type for a field, including any array or length
 // bound.
-func (r *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
-	if f.Kind == bufir.KindMap {
+func (r *run) fieldType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
+	if f.Kind == buffers.KindMap {
 		// ROS has no map. A list of two-field messages is the only shape
 		// available, and unlike FlatBuffers there is no keyed-lookup convention
 		// to preserve alongside the data.
@@ -64,7 +64,7 @@ func (r *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagno
 
 	// A bound belongs to the type in ROS, so it is applied here rather than as a
 	// trailing annotation.
-	if f.Kind == bufir.KindString && !f.Repeated && f.MaxLen > 0 {
+	if f.Kind == buffers.KindString && !f.Repeated && f.MaxLen > 0 {
 		base = fmt.Sprintf("string<=%d", f.MaxLen)
 	}
 	if !f.Repeated {
@@ -81,24 +81,24 @@ func (r *run) fieldType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagno
 }
 
 // baseType returns the element type, ignoring arrays and bounds.
-func (r *run) baseType(f *bufir.Field, from *bufir.File) (string, *bufir.Diagnostic) {
+func (r *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.Diagnostic) {
 	if got, ok := scalar(f.Kind); ok {
 		return got, nil
 	}
 	switch f.Kind {
-	case bufir.KindString:
+	case buffers.KindString:
 		return "string", nil
-	case bufir.KindBytes:
+	case buffers.KindBytes:
 		// ROS has no bytes type. uint8[] is the conventional stand-in and is what
 		// sensor_msgs/Image uses for pixel data.
 		return "uint8[]", nil
-	case bufir.KindEnum:
+	case buffers.KindEnum:
 		return r.qualify(r.enumRosName(f.Enum), from), nil
-	case bufir.KindMessage:
+	case buffers.KindMessage:
 		return r.messageType(f, from)
 	}
-	return "", &bufir.Diagnostic{
-		Rule:    bufir.RuleTarget,
+	return "", &buffers.Diagnostic{
+		Rule:    buffers.RuleTarget,
 		Node:    f.Node,
 		Message: fmt.Sprintf("no ROS type for proto kind %s", f.Kind),
 	}

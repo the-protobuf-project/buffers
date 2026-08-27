@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/the-protobuf-project/protokit/buffers"
 	"github.com/the-protobuf-project/protokit/factory"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 	"github.com/the-protobuf-project/buffers/plugin/factory/registry"
 	"github.com/the-protobuf-project/buffers/plugin/factory/source/protofile"
@@ -17,7 +17,7 @@ import (
 )
 
 // buildSchema compiles the example protos into the message graph.
-func buildSchema(t *testing.T) *bufir.Schema {
+func buildSchema(t *testing.T) *buffers.Schema {
 	t.Helper()
 
 	plugin, err := protofile.Load(protofile.Input{DescriptorSet: descriptorSet(t)})
@@ -27,7 +27,7 @@ func buildSchema(t *testing.T) *bufir.Schema {
 
 	// No lock path: each build starts from an empty ledger, so what the tests
 	// assert is what derivation produces rather than what a committed file says.
-	src := registry.New(nil, bufir.Options{}, info(), registry.Options{}).Sources["proto"]
+	src := registry.New(nil, buffers.Options{}, info(), registry.Options{}).Sources["proto"]
 	model, err := src.Build(factory.Ctx{Plugin: plugin})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -50,7 +50,7 @@ func render(t *testing.T, target string) map[string][]byte {
 		return nil
 	})
 
-	reg := registry.New(sink, bufir.Options{}, info(), registry.Options{})
+	reg := registry.New(sink, buffers.Options{}, info(), registry.Options{})
 	model, err := reg.Sources["proto"].Build(factory.Ctx{Plugin: plugin})
 	if err != nil {
 		t.Fatalf("build: %v", err)

@@ -42,10 +42,10 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
 	"github.com/the-protobuf-project/buffers/plugin/factory/provenance"
 	"github.com/the-protobuf-project/buffers/plugin/factory/registry"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
+	"github.com/the-protobuf-project/protokit/buffers"
 	"github.com/the-protobuf-project/protokit/factory"
 	"github.com/the-protobuf-project/protokit/header"
 )
@@ -96,7 +96,7 @@ func main() {
 	// "key=value" to flags.Set) before the Run closure reads them.
 	var flags flag.FlagSet
 	target := flags.String("target", "", "output backend: "+registry.TargetNames())
-	lock := flags.String("lock", bufir.LockFileName,
+	lock := flags.String("lock", buffers.LockFileName,
 		"path to the ordinal ledger, relative to the directory buf or protoc is run from "+
 			"(not to the plugin's out: directory — the ledger is read back on the next run, "+
 			"so both ends must name the same file). It records the target slot every field "+
@@ -132,7 +132,7 @@ func main() {
 		// than letting buf warn that the plugin might mishandle it.
 		p.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 
-		opts := bufir.Options{Strict: *strict, LockPath: *lock}
+		opts := buffers.Options{Strict: *strict, LockPath: *lock}
 		info := provenance.Info{
 			Version:       v,
 			ProtocVersion: protocVersion(p),

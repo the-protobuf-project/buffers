@@ -12,7 +12,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -21,8 +22,8 @@ import (
 // This is the one place Cap'n Proto is a better fit than any other target: a
 // proto oneof and a capnp union are the same construct, discriminant and all, and
 // the arms keep their own ordinals in the enclosing struct's space.
-func (r *run) union(b *emit.Buf, f *bufir.File, one *bufir.Oneof, used map[int32]bool) {
-	arms := make([]*bufir.Field, 0, len(one.Fields))
+func (r *run) union(b *emit.Buf, f *buffers.File, one *buffers.Oneof, used map[int32]bool) {
+	arms := make([]*buffers.Field, 0, len(one.Fields))
 	for _, arm := range one.Fields {
 		if arm.Skip || !allows(arm.Targets) {
 			continue
@@ -58,10 +59,10 @@ func (r *run) union(b *emit.Buf, f *bufir.File, one *bufir.Oneof, used map[int32
 }
 
 // mapEntries returns the map fields of a message that need an entry struct.
-func (r *run) mapEntries(m *bufir.Message) []*bufir.Field {
-	var out []*bufir.Field
+func (r *run) mapEntries(m *buffers.Message) []*buffers.Field {
+	var out []*buffers.Field
 	for _, f := range m.Fields {
-		if f.Kind == bufir.KindMap && !f.Skip && allows(f.Targets) {
+		if f.Kind == buffers.KindMap && !f.Skip && allows(f.Targets) {
 			out = append(out, f)
 		}
 	}
@@ -69,7 +70,7 @@ func (r *run) mapEntries(m *bufir.Message) []*bufir.Field {
 }
 
 // mapEntry renders the two-field struct a proto map is rewritten into.
-func (r *run) mapEntry(b *emit.Buf, f *bufir.File, field *bufir.Field) {
+func (r *run) mapEntry(b *emit.Buf, f *buffers.File, field *buffers.Field) {
 	keyType, diag := r.baseType(field.MapKey, f)
 	r.collect(diag)
 	valType, diag := r.baseType(field.MapValue, f)
@@ -78,7 +79,7 @@ func (r *run) mapEntry(b *emit.Buf, f *bufir.File, field *bufir.Field) {
 	b.Linef("# Entry of %s, which is a proto map. Cap'n Proto has no map type and no", member(field.Name))
 	b.Line("# keyed-list convention, so a list of pairs is the whole of what it can say:")
 	b.Line("# uniqueness and lookup are the reader's responsibility.")
-	b.Block(fmt.Sprintf("struct %s @0x%016x {", r.mapEntryName(field), bufir.DeriveTypeID(string(field.Node)+".entry")), "}", func() {
+	b.Block(fmt.Sprintf("struct %s @0x%016x {", r.mapEntryName(field), buffers.DeriveTypeID(string(field.Node)+".entry")), "}", func() {
 		b.Linef("key @0 :%s;", keyType)
 		b.Linef("value @1 :%s;", valType)
 	})

@@ -10,7 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/the-protobuf-project/buffers/plugin/factory/bufir"
+	"github.com/the-protobuf-project/protokit/buffers"
+
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 )
 
@@ -18,7 +19,7 @@ import (
 type run struct {
 	*Target
 	// schema is the graph being rendered.
-	schema *bufir.Schema
+	schema *buffers.Schema
 
 	// needed is every substituted well-known record the whole run reached for,
 	// which decides what the prelude file contains.
@@ -35,11 +36,11 @@ type run struct {
 	fileNeeds map[preludeType]bool
 
 	// diags accumulates problems found while projecting types.
-	diags []bufir.Diagnostic
+	diags []buffers.Diagnostic
 }
 
 // file renders one .fbs, or nil when the file has nothing this target emits.
-func (r *run) file(f *bufir.File) ([]byte, error) {
+func (r *run) file(f *buffers.File) ([]byte, error) {
 	msgs := r.emittable(f)
 	enums := r.emittableEnums(f)
 	if len(msgs) == 0 && len(enums) == 0 {
@@ -109,7 +110,7 @@ func (r *run) file(f *bufir.File) ([]byte, error) {
 // Imports of google/protobuf/* are dropped: those types are substituted by the
 // prelude, so including a .fbs rendering of them would be including a file this
 // plugin never wrote.
-func (r *run) includes(f *bufir.File) []string {
+func (r *run) includes(f *buffers.File) []string {
 	var out []string
 	for _, imp := range f.Imports {
 		if strings.HasPrefix(imp, "google/protobuf/") {
