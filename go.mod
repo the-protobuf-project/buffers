@@ -3,13 +3,19 @@
 // The dependency set is small on purpose, and worth reading as a statement of
 // what this plugin is allowed to know:
 //
-//	protokit       the neutral IR engine. This plugin uses its service IR (for
-//	               RPC interfaces), its naming/header/templates/manifest helpers,
-//	               and its factory Source/Target/Registry — but NOT its schema IR.
-//	               See plugin/factory/bufir/doc.go for why a serialization plugin
-//	               needs a message graph rather than a database tree.
-//	genproto/api   google.api.resource / field_behavior / resource_reference —
-//	               the AIP vocabulary this plugin reads directly.
+//	protokit       the neutral IR engine, and the only direct dependency that
+//	               shapes anything. This plugin renders from its buffers IR
+//	               (protokit/buffers: the message graph, the ordinal derivation
+//	               and the ledger), and uses its naming and header helpers and its
+//	               factory Source/Target/Registry. Not its schema IR, and not its
+//	               service IR — see that package's doc.go for why a serialization
+//	               schema needs a message graph rather than a database tree or a
+//	               route table.
+//
+//	               The buffers.v1 vocabulary reaches that IR through
+//	               plugin/factory/vocab rather than through an import: protokit
+//	               imports no annotation module, and google.api.* is now read on
+//	               its side of the seam, which is why genproto is indirect here.
 //	cobra          the `buffers` CLI. The protoc plugin does not import it; only
 //	               plugin/cmd/buffers does.
 //	yaml.v3        buffers.yaml and buffers.lock.
