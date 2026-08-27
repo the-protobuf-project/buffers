@@ -1,4 +1,29 @@
 # Language detection on GitHub.
+#
+# Two independent linguist exclusions have to be turned off before either of the
+# languages this plugin exists to emit appears at all, and neither of them is
+# what linguist-detectable controls.
+#
+# Every .capnp and .fbs here is committed twice: once under examples/generated as
+# the demonstration output, and once under plugin/factory/registry/testdata as
+# the golden fixture the tests compare it against. linguist's documentation.yml
+# matches `^[Ee]xamples/` and its vendor.yml matches `(^|/)testdata/`, so *both*
+# copies are dropped from the language statistics before detectability is ever
+# consulted. That is why the sidebar showed no Cap'n Proto and no FlatBuffers
+# rather than a small slice of each — with the files split evenly across two
+# excluded trees, the count was zero.
+#
+# The examples copy is the one to count: it is the output, and it is what someone
+# is looking at when they want to know what this produces. The testdata copy
+# stays vendored — it is the same ten files, and counting a golden fixture as
+# source would double every number for no added truth.
+examples/** linguist-documentation=false
+
+# Detectability is a separate, per-language default: linguist counts `programming`
+# and `markup` languages and ignores `data` ones. Of the three below only Cap'n
+# Proto is `programming`, so its line is belt and braces while the other two are
+# load-bearing — .proto is linguist's `Proto` (data) and .fbs its `FlatBuffers`
+# (data), and without these they stay at zero even inside a counted directory.
 *.proto linguist-detectable=true
 *.fbs   linguist-detectable=true
 *.capnp linguist-detectable=true
