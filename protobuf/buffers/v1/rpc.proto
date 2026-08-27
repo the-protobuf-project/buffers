@@ -1,0 +1,107 @@
+// rpc.proto covers the call surface: Cap'n Proto interfaces, ROS services and
+// actions, and Wire's gRPC client roles.
+//
+// The shape of that surface is mostly not declared here. It is read from the AIP
+// annotations the service already carries — google.api.http, method_signature,
+// and the AIP-131 through AIP-136 naming rules — because a service that is
+// already a well-formed AIP service has said everything a generator needs, and
+// asking the author to restate it in a second vocabulary is how the two drift
+// apart. What remains here is the handful of facts AIP genuinely does not
+// express: the ordinal a Cap'n Proto method is pinned to, and whether a
+// long-running method should become a ROS action rather than a service call.
+syntax = "proto3";
+
+package buffers.v1;
+
+option go_package = "github.com/the-protobuf-project/buffers/plugin/pb/bufferspbv1;bufferspbv1";
+option java_multiple_files = true;
+option java_outer_classname = "RpcProto";
+option java_package = "com.buffers.v1";
+
+// ServiceOptions shapes how one service lands in each target.
+message ServiceOptions {
+  // skip excludes the service from every target.
+  bool skip = 1;
+
+  // capnp_interface controls whether a Cap'n Proto `interface` is emitted.
+  //
+  // Optional rather than a bare bool because the default is not a constant: a
+  // service with methods becomes an interface, and one with none does not. A
+  // bare bool would make "false" and "unset" indistinguishable, so a service
+  // could not opt out.
+  optional bool capnp_interface = 2;
+
+  // capnp_id pins the interface's Cap'n Proto ID. Derived from the file ID and
+  // the service's fully qualified name when unset. See
+  // buffers.v1.FileOptions.capnp_id on why a valid ID reads as negative.
+  int64 capnp_id = 3;
+
+  // ros_service controls whether .srv files are emitted for the service's
+  // methods. Defaults to true for a service whose methods classify as AIP
+  // standard methods, since those have a request and response shape ROS can
+  // express, and false otherwise.
+  optional bool ros_service = 4;
+
+  // targets restricts the service to the named targets. See
+  // buffers.v1.MessageOptions.targets.
+  repeated string targets = 5;
+}
+
+// MethodOptions shapes how one method lands in each target.
+message MethodOptions {
+  // skip excludes the method. It permanently consumes its Cap'n Proto ordinal,
+  // for the same reason buffers.v1.FieldOptions.skip does.
+  bool skip = 1;
+
+  // ordinal pins the Cap'n Proto method ordinal, 0-based within the interface.
+  //
+  // Leave it unset. Derivation orders methods by declaration order and records
+  // the result in buffers.lock, so a method inserted in the middle of a service
+  // is caught as drift rather than silently renumbering every method after it.
+  int32 ordinal = 2;
+
+  // transport selects the call shape. See Transport.
+  Transport transport = 3;
+
+  // topic overrides the ROS topic name for a TRANSPORT_TOPIC method, which
+  // otherwise derives from the method name in snake_case. It is also the name an
+  // eCAL publisher and subscriber pair will be generated against.
+  string topic = 4;
+
+  // ros_type overrides the emitted .srv or .action base name, which is otherwise
+  // the method name.
+  string ros_type = 5;
+
+  // targets restricts the method to the named targets. See
+  // buffers.v1.MessageOptions.targets.
+  repeated string targets = 6;
+}
+
+// Transport names how a method's messages move, where the target distinguishes
+// between a call and a stream.
+//
+// ROS is the target that cares: a request and response pair is a service, a
+// fire-and-forget stream is a topic, and a long-running call with feedback is an
+// action. Cap'n Proto reads it too, to decide whether a method returns a value
+// or a stream capability.
+enum Transport {
+  // TRANSPORT_UNSPECIFIED lets the plugin classify from the method's own shape:
+  // a server-streaming method becomes a topic, an AIP-151 long-running method
+  // becomes an action, and everything else becomes a call.
+  TRANSPORT_UNSPECIFIED = 0;
+
+  // TRANSPORT_CALL is a request and response pair — a ROS service, a Cap'n Proto
+  // method returning results.
+  TRANSPORT_CALL = 1;
+
+  // TRANSPORT_TOPIC is a one-way publication. The method's output message is the
+  // topic payload; its input is ignored, and the plugin warns when that input is
+  // not the empty message, because a topic has nowhere to put it.
+  TRANSPORT_TOPIC = 2;
+
+  // TRANSPORT_ACTION is a goal, feedback and result triple — a ROS action. The
+  // method must be AIP-151 long-running, returning google.longrunning.Operation,
+  // for the three payloads to be derivable; the plugin errors naming the method
+  // otherwise.
+  TRANSPORT_ACTION = 3;
+}

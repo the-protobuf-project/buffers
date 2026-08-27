@@ -1,0 +1,14 @@
+.DS_Store
+dist/*
+
+# Dev binaries built by the justfile (just build / just dev).
+/bin/
+
+# Compiled language output from `just langs` — produced by flatc and capnp, not
+# by this repository, and regenerated on demand. The *schema* under
+# examples/generated is committed; the code compiled from it is not.
+#
+# The directory is named with a leading underscore because the Go tool skips
+# such paths, which keeps the generated capnp-go package and its capnproto.org
+# dependency out of this module's `go build ./...`. See examples/buffers.yaml.
+/examples/generated/_lang/

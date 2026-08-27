@@ -1,0 +1,54 @@
+# The example config, used by `just langs` and by the CLI's own tests.
+#
+# It reads a descriptor set rather than the .proto tree, because the examples
+# import googleapis and buf has already resolved that. Compiling from source
+# would mean finding google/api/*.proto on disk, which is exactly the resolution
+# problem buf exists to solve.
+#
+# Regenerate the set with:
+#   buf build examples/proto -o examples/descriptors.binpb --as-file-descriptor-set
+version: v1
+
+proto:
+  descriptor_set: descriptors.binpb
+
+out: generated
+lock: generated/buffers.lock
+strict: ordinal:error
+
+# The Go module generated Go code lives in.
+#
+# Both Go-emitting toolchains need it and neither can derive it: capnpc-go's
+# $Go.import must name where the generated file lands, and flatc writes
+# cross-package imports as bare namespace paths that resolve against no module
+# without --go-module-name. Each target's output is in its own directory, so each
+# needs its own module root — hence the per-entry overrides below rather than one
+# value here.
+
+generate:
+  # Every language flatc can produce, all verified by running it. This is the
+  # broadest coverage of the four targets and the only one here that reaches
+  # Swift and Dart.
+  - target: flatbuffers
+    languages: [cpp, go, rust, python, java, kotlin, swift, dart]
+    lang_out: _lang/flatbuffers
+    go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/flatbuffers/go
+
+  # c++ ships with capnp; go needs capnpc-go on PATH. Both are exercised here
+  # because the Go generator is the one that rejects an unannotated schema, and a
+  # config that only ever compiled c++ would not notice.
+  - target: capnp
+    languages: [c++, go]
+    lang_out: _lang/capnp
+    go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/capnp/go
+
+  - target: ros
+
+  - target: wire
+
+# Note the `_lang` prefix on both lang_out paths. Compiled language output is a
+# build artifact, not part of this repository, and a directory whose name starts
+# with an underscore is skipped by the Go tool — which keeps the generated
+# capnp-go package, and its capnproto.org dependency, out of `go build ./...`
+# here. A real project generating into its own module wants the opposite and
+# should leave lang_out unset.

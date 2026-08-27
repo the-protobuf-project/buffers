@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package sensors.v1;
+
+import "buffers/v1/annotations.proto";
+import "google/api/field_behavior.proto";
+
+option go_package = "github.com/the-protobuf-project/buffers/examples/gen/sensorsv1;sensorsv1";
+option java_multiple_files = true;
+option java_outer_classname = "GeometryProto";
+option java_package = "com.sensors.v1";
+option (buffers.v1.file) = {
+  namespace: "sensors.v1"
+  ros_package: "sensors_msgs"
+};
+
+// Vector3 is a point or displacement in three dimensions.
+//
+// It is the canonical LAYOUT_STRUCT case: three fixed-width scalars and nothing
+// else, so it can be a 24-byte inline blob in every target that has one. Making
+// it a table instead would cost a vtable lookup per axis on a message that a
+// perception stack reads a few million times a second.
+message Vector3 {
+  option (buffers.v1.message) = {layout: LAYOUT_STRUCT};
+
+  // x is the first axis component, in metres.
+  double x = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // y is the second axis component, in metres.
+  double y = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // z is the third axis component, in metres.
+  double z = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Quaternion is an orientation in Hamilton convention.
+message Quaternion {
+  option (buffers.v1.message) = {layout: LAYOUT_STRUCT};
+
+  // x is the first vector component.
+  double x = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // y is the second vector component.
+  double y = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // z is the third vector component.
+  double z = 3 [(google.api.field_behavior) = REQUIRED];
+
+  // w is the scalar component.
+  double w = 4 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Pose is a position and an orientation together.
+//
+// Still a struct: a struct may contain other structs, and this one is exactly
+// the two above laid end to end.
+message Pose {
+  option (buffers.v1.message) = {layout: LAYOUT_STRUCT};
+
+  // position is the translation component, in the parent frame.
+  Vector3 position = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // orientation is the rotation component, in the parent frame.
+  Quaternion orientation = 2 [(google.api.field_behavior) = REQUIRED];
+}

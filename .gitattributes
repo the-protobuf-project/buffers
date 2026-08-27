@@ -1,0 +1,34 @@
+# Language detection on GitHub.
+*.proto linguist-detectable=true
+*.fbs   linguist-detectable=true
+*.capnp linguist-detectable=true
+
+# .msg and .srv are ROS interface definitions. linguist has no id for them, and a
+# value with a space in it is not expressible here at all — git splits this file
+# on whitespace and does not honour quoting — so they are simply marked as
+# generated, which is what they are.
+*.msg   linguist-generated=true
+*.srv   linguist-generated=true
+
+# Everything below is compared byte-for-byte by the test suite, so git must not
+# rewrite it on checkout. Without these, git's default core.autocrlf=true on
+# Windows turns every committed LF into CRLF and the comparison fails on the line
+# ending alone.
+#
+# The .proto *inputs* are pinned as well as the expected outputs, and not only
+# because the golden harness reads them: doc comments are lifted out of proto
+# source and forwarded into every emitted schema, so a CRLF checkout of an input
+# file can put a stray \r in the middle of a golden line rather than only at the
+# end of one — which reads as a content mismatch, not a line-ending one.
+*.proto text eol=lf
+
+# Golden fixtures: case inputs and expected output trees.
+plugin/factory/registry/testdata/** text eol=lf
+
+# Committed generated output. Not gated by CI, but `just regen` rewrites it with
+# LF, so a CRLF checkout would show every line of every file as modified.
+examples/generated/** text eol=lf
+
+# buffers.lock is the ordinal ledger. It is compared, never merged: a conflict in
+# it is a real conflict about wire compatibility and must be resolved by a human.
+buffers.lock -merge

@@ -1,0 +1,23 @@
+version: v2
+
+# Regenerates the pre-compiled Go stubs for the option module this repository
+# owns: buffers.v1, the vocabulary that shapes how a proto lands in each target
+# IDL.
+#
+# Run:  buf generate --template buf.gen.yaml
+# Out:  plugin/pb/bufferspbv1/*.pb.go
+#
+# The module= opt strips the buffers module prefix from each go_package so the
+# output lands under plugin/pb/ (go_package .../buffers/plugin/pb/bufferspbv1 ->
+# plugin/pb/bufferspbv1).
+#
+# (buf.gen.example.yaml is the separate template that renders the example schemas
+# with the protoc-gen-buffers plugin itself.)
+inputs:
+  - directory: protobuf
+
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt:
+      - module=github.com/the-protobuf-project/buffers

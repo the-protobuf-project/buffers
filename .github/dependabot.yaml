@@ -1,0 +1,40 @@
+# Dependabot: automated dependency updates
+# https://docs.github.com/en/code-security/dependabot
+#
+# Pull requests opened from here are merged automatically once every check on the
+# commit has passed — see .github/workflows/dependabot-auto-merge.yaml and
+# .github/AUTOMATION.md. Nothing else needs configuring for that to work.
+
+version: 2
+updates:
+  - package-ecosystem: 'gomod'
+    directory: '/' # single module: the plugin, the CLI, and the generated stubs
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'go'
+    groups:
+      # Grouped so one weekly PR carries the routine bumps, rather than five that
+      # each run the full matrix. Majors are deliberately excluded from the group
+      # and arrive as individual PRs: they are the ones most likely to change
+      # generated output, and a group diff is the wrong place to notice that.
+      go-minor-and-patch:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'ci'
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: ['minor', 'patch']

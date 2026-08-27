@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package sensors.v1;
+
+import "buffers/v1/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/timestamp.proto";
+import "sensors/v1/enums.proto";
+import "sensors/v1/geometry.proto";
+
+option go_package = "github.com/the-protobuf-project/buffers/examples/gen/sensorsv1;sensorsv1";
+option java_multiple_files = true;
+option java_outer_classname = "SensorsProto";
+option java_package = "com.sensors.v1";
+option (buffers.v1.file) = {
+  namespace: "sensors.v1"
+  ros_package: "sensors_msgs"
+  file_id: "SNSR"
+};
+
+// Robot is one fielded machine.
+message Robot {
+  option (google.api.resource) = {
+    type: "sensors.example.com/Robot"
+    pattern: "robots/{robot}"
+    singular: "robot"
+    plural: "robots"
+  };
+
+  // name is the resource name, `robots/{robot}`.
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // display_name is the human-facing label.
+  string display_name = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // serial is the immutable manufacturer serial.
+  string serial = 3 [
+    (google.api.field_behavior) = IMMUTABLE,
+    (buffers.v1.field) = {max_len: 32}
+  ];
+
+  // pose is where the robot last reported itself.
+  Pose pose = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // labels are operator-assigned key and value tags.
+  map<string, string> labels = 5 [(google.api.field_behavior) = OPTIONAL];
+
+  // create_time is when the robot was registered.
+  google.protobuf.Timestamp create_time = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// Sensor is one device mounted on a robot.
+message Sensor {
+  option (google.api.resource) = {
+    type: "sensors.example.com/Sensor"
+    pattern: "robots/{robot}/sensors/{sensor}"
+    singular: "sensor"
+    plural: "sensors"
+  };
+
+  // Field 6 was `sample_period_ms`, removed in favour of a rate. Declaring it
+  // reserved is not decoration: it is what keeps every later field on the
+  // ordinal it already had, in every target this schema is compiled into. See
+  // plugin/factory/bufir/ordinal.go.
+  reserved 6;
+
+  // name is the resource name, `robots/{robot}/sensors/{sensor}`.
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // kind is the modality this sensor measures.
+  SensorKind kind = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // health is the sensor's current operability.
+  HealthState health = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // mount is the sensor's pose in the robot's body frame.
+  Pose mount = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // firmware is the running firmware version.
+  string firmware = 5 [
+    (google.api.field_behavior) = OUTPUT_ONLY,
+    (buffers.v1.field) = {max_len: 24}
+  ];
+
+  // rate_hz is the nominal publication rate.
+  float rate_hz = 7 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// Reading is one sample published by a sensor.
+//
+// The payload oneof is the interesting shape: proto's oneof is a Cap'n Proto
+// union almost exactly, and a FlatBuffers union with a wrapper table per scalar
+// arm, since FlatBuffers unions may only hold tables.
+message Reading {
+  // Reading is what a sensor actually publishes, so it is the FlatBuffers root:
+  // the type `GetRootAsReading` is generated for, and the one the "SNSR" file
+  // identifier tags.
+  option (buffers.v1.message) = {fbs_root: true};
+
+  option (google.api.resource) = {
+    type: "sensors.example.com/Reading"
+    pattern: "robots/{robot}/sensors/{sensor}/readings/{reading}"
+    singular: "reading"
+    plural: "readings"
+  };
+
+  // name is the resource name.
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // observe_time is when the sample was taken, not when it was received.
+  google.protobuf.Timestamp observe_time = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // sequence is the publisher's monotonic counter, used to detect drops.
+  int64 sequence = 3 [(google.api.field_behavior) = REQUIRED];
+
+  // payload is the sample itself, whose shape depends on the sensor's modality.
+  oneof payload {
+    // scalar is a single measurement, for an encoder or a thermometer.
+    double scalar = 4;
+
+    // vector is a three-axis measurement, for an inertial unit.
+    Vector3 vector = 5;
+
+    // cloud is a point cloud, for a rangefinder.
+    PointCloud cloud = 6;
+
+    // frame is an encoded image, for a camera.
+    ImageFrame frame = 7;
+  }
+}
+
+// PointCloud is an unstructured set of returns.
+message PointCloud {
+  // points are the returns in the sensor frame.
+  repeated Vector3 points = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // intensities are per-point return strengths, parallel to points.
+  repeated float intensities = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// ImageFrame is one encoded image.
+message ImageFrame {
+  // width is the frame width in pixels.
+  int32 width = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // height is the frame height in pixels.
+  int32 height = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // encoding names the pixel format, for example "rgb8".
+  string encoding = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (buffers.v1.field) = {shared: true}
+  ];
+
+  // data is the encoded payload.
+  bytes data = 4 [(google.api.field_behavior) = REQUIRED];
+}

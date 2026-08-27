@@ -1,0 +1,154 @@
+name: Dependabot auto-merge
+
+# Merges a Dependabot pull request once its CI has passed, and leaves it alone
+# when CI has not.
+#
+# # Why this verifies the checks itself
+#
+# The usual recipe is `gh pr merge --auto`, which hands the decision to GitHub:
+# the PR merges when its *required status checks* pass. That requirement lives in
+# branch protection, and it is not available here — this repository is private and
+# the organization is on the free plan, where both branch protection and the
+# native auto-merge feature are withheld. `--auto` would fail outright.
+#
+# The subtler reason not to reach for it even later: on a repository where
+# protection exists but does not name these checks, `--auto` merges *immediately*,
+# because a PR with no required checks is mergeable the moment it opens. The
+# workflow would look like it was gating on CI while gating on nothing.
+#
+# So this workflow does the gating itself. It wakes when Test or Lint finishes,
+# reads the check results for that exact commit, and merges only when every check
+# in REQUIRED_CHECKS has actually concluded successfully. That is plan-independent
+# — it behaves the same before and after this repository goes public — and it
+# cannot silently degrade into merging without CI, because there is nothing to
+# misconfigure.
+#
+# # Why workflow_run
+#
+# Merging needs write access, and a workflow triggered by `pull_request` gets a
+# read-only token on Dependabot branches. `workflow_run` runs *after* the fact,
+# with the workflow definition taken from the default branch rather than from the
+# pull request — so the code deciding to merge is always the reviewed copy on
+# main, never a version proposed by the branch being merged.
+
+on:
+  workflow_run:
+    workflows: [Test, Lint]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  merge:
+    name: Merge if CI passed
+    runs-on: ubuntu-latest
+    # Only Dependabot's own pull requests. workflow_run also fires for pushes to
+    # main and for everyone else's branches, and neither should reach the merge
+    # step below.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+
+    steps:
+      - name: Merge when every check has passed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          # The floor: checks that must be *present* before merging is even
+          # considered. Without it, a commit whose CI has not started yet has no
+          # failing checks and would sail through.
+          #
+          # It is a floor, not the whole gate. Everything else reported for the
+          # commit must also be green — see below.
+          REQUIRED_CHECKS: 'Test (Go)|Examples reproduce|Lint (Go)|Lint (Proto)|Lint (AIP)'
+        run: |
+          set -euo pipefail
+
+          # workflow_run carries a head SHA but not reliably a pull request, so
+          # the PR is looked up from the commit.
+          pr="$(gh api "repos/$REPO/commits/$SHA/pulls" \
+                  --jq 'map(select(.state == "open")) | first | .number // empty')"
+          if [ -z "$pr" ]; then
+            echo "No open pull request for $SHA; nothing to merge."
+            exit 0
+          fi
+          echo "Pull request #$pr, commit $SHA"
+
+          # Check runs are per-commit, so this sees every workflow's result for
+          # this exact tree — including the sibling workflow that did not trigger
+          # this run.
+          runs="$(gh api --paginate "repos/$REPO/commits/$SHA/check-runs" \
+                    --jq '.check_runs[] | [.name, .status, (.conclusion // "pending")] | @tsv')"
+
+          if [ -z "$runs" ]; then
+            echo "No checks have reported for $SHA yet."
+            exit 0
+          fi
+          echo "$runs" | sort | awk -F'\t' '{ printf "  %-24s %s/%s\n", $1, $2, $3 }'
+
+          # Every check must be green, not just a named list. A list has to be
+          # remembered: add a job to CI, forget to add it here, and auto-merge
+          # silently stops covering it. Requiring the whole set inverts that, so a
+          # new job gates auto-merge the moment it exists.
+          #
+          # This is why the platform build matrix is covered without being
+          # enumerated. A dependency bump that breaks the windows/arm64 build is
+          # exactly the failure auto-merge exists to catch, and an earlier version
+          # of this workflow would have merged straight past it.
+          pending=0
+          failed=0
+
+          while IFS=$'\t' read -r name status conclusion; do
+            [ -z "$name" ] && continue
+            # This workflow's own run, when it appears as a check on the commit.
+            case "$name" in
+              "Merge if CI passed") continue ;;
+            esac
+
+            if [ "$status" != "completed" ]; then
+              echo "  -> $name is still $status"
+              pending=$((pending + 1))
+              continue
+            fi
+            case "$conclusion" in
+              success|skipped|neutral)
+                ;;
+              *)
+                echo "::warning::$name concluded '$conclusion'"
+                failed=$((failed + 1))
+                ;;
+            esac
+          done <<< "$runs"
+
+          # The floor: the core checks must have reported at all.
+          IFS='|' read -ra required <<< "$REQUIRED_CHECKS"
+          for check in "${required[@]}"; do
+            if ! echo "$runs" | awk -F'\t' -v n="$check" '$1 == n { found = 1 } END { exit !found }'; then
+              echo "  -> $check has not reported yet"
+              pending=$((pending + 1))
+            fi
+          done
+
+          if [ "$failed" -gt 0 ]; then
+            echo "::notice::$failed check(s) did not pass; leaving #$pr for a human."
+            exit 0
+          fi
+          if [ "$pending" -gt 0 ]; then
+            # Another workflow is still running. It will trigger this workflow
+            # again when it finishes, and that run will see the complete picture.
+            echo "$pending check(s) still outstanding; will re-evaluate when they finish."
+            exit 0
+          fi
+
+          echo "Every check passed. Merging #$pr."
+          gh pr merge "$pr" --squash --delete-branch --repo "$REPO"
+
+          {
+            echo "### Dependabot auto-merge"
+            echo ""
+            echo "Merged [#$pr](https://github.com/$REPO/pull/$pr) — every check passed."
+          } >> "$GITHUB_STEP_SUMMARY"

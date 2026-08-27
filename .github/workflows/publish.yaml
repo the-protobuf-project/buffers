@@ -1,0 +1,55 @@
+name: Publish (BSR)
+
+# Publishes the protobuf/ module to the Buf Schema Registry
+# (https://buf.build/the-protobuf-project/buffers) on version-tag releases (v*),
+# so BSR module versions line up with GitHub releases (see release.yaml). Proto
+# lint and format checks live in lint.yaml, so this workflow only runs `buf push`.
+#
+# Requires a BUF_TOKEN secret: a BSR API token with write access to the
+# the-protobuf-project organization. Add it under
+# Settings → Secrets and variables → Actions → New repository secret.
+# The action auto-creates the BSR repository on first push.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  push:
+    name: buf push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Full history + tags so --git-metadata carries the correct release info.
+          fetch-depth: 0
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          # Pinned, not floated. buf-setup-action's default is far behind
+          # (1.50.0 at time of writing) and a FileDescriptorSet's bytes depend on
+          # the compiler that produced them — so an unpinned buf made the
+          # "descriptor set is current" gate compare a 1.72 artifact against a
+          # 1.50 rebuild and fail on a difference that was purely tooling.
+          #
+          # Keep this in step with the buf a contributor runs locally; `just
+          # regen` is what rebuilds the committed artifacts.
+          version: 1.72.0
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to BSR
+        env:
+          # buf authenticates to buf.build from BUF_TOKEN.
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+        # This is a two-module workspace (see buf.yaml): `protobuf` (buffers.v1)
+        # is named and published, while `examples/proto` is a local-only
+        # workspace module with no BSR name. A bare `buf push` errors on the
+        # unnamed module, so --exclude-unnamed pushes only the named one.
+        # --create makes the first release auto-create the (public) BSR
+        # repository; --git-metadata stamps the tag.
+        run: buf push --exclude-unnamed --create --create-visibility public --git-metadata

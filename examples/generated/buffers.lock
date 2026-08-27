@@ -1,0 +1,243 @@
+# buffers.lock — the ordinal ledger. Generated; commit it.
+#
+# Every field, enum value and method this plugin has assigned a target slot to is
+# recorded here by its proto field number. A later build that would assign a
+# different slot reports the disagreement instead of shipping it.
+#
+# That matters because the slot is a wire format. A consumer compiled against a
+# schema where a field sat at ordinal 5 reads ordinal 5 forever, and if a rebuild
+# moves something else there, nothing — not protoc, not capnp, not flatc, not the
+# consumer — reports an error. It just reads the wrong field.
+#
+# Do not edit by hand, and do not resolve a merge conflict in this file textually.
+# A conflict here means two branches each assigned a slot; deciding which one wins
+# is a compatibility decision, so .gitattributes marks the file -merge to keep git
+# from guessing.
+version: 1
+messages:
+  - message: sensors.v1.CreateSensorRequest
+    fields:
+      - number: 1
+        ordinal: 0
+        name: parent
+      - number: 2
+        ordinal: 1
+        name: sensor_id
+      - number: 3
+        ordinal: 2
+        name: sensor
+  - message: sensors.v1.DeleteSensorRequest
+    fields:
+      - number: 1
+        ordinal: 0
+        name: name
+      - number: 2
+        ordinal: 1
+        name: force
+  - message: sensors.v1.GetSensorRequest
+    fields:
+      - number: 1
+        ordinal: 0
+        name: name
+  - message: sensors.v1.ImageFrame
+    fields:
+      - number: 1
+        ordinal: 0
+        name: width
+      - number: 2
+        ordinal: 1
+        name: height
+      - number: 3
+        ordinal: 2
+        name: encoding
+      - number: 4
+        ordinal: 3
+        name: data
+  - message: sensors.v1.ListSensorsRequest
+    fields:
+      - number: 1
+        ordinal: 0
+        name: parent
+      - number: 2
+        ordinal: 1
+        name: page_size
+      - number: 3
+        ordinal: 2
+        name: page_token
+  - message: sensors.v1.ListSensorsResponse
+    fields:
+      - number: 1
+        ordinal: 0
+        name: sensors
+      - number: 2
+        ordinal: 1
+        name: next_page_token
+  - message: sensors.v1.PointCloud
+    fields:
+      - number: 1
+        ordinal: 0
+        name: points
+      - number: 2
+        ordinal: 1
+        name: intensities
+  - message: sensors.v1.Pose
+    fields:
+      - number: 1
+        ordinal: 0
+        name: position
+      - number: 2
+        ordinal: 1
+        name: orientation
+  - message: sensors.v1.Quaternion
+    fields:
+      - number: 1
+        ordinal: 0
+        name: x
+      - number: 2
+        ordinal: 1
+        name: "y"
+      - number: 3
+        ordinal: 2
+        name: z
+      - number: 4
+        ordinal: 3
+        name: w
+  - message: sensors.v1.Reading
+    fields:
+      - number: 1
+        ordinal: 0
+        name: name
+      - number: 2
+        ordinal: 1
+        name: observe_time
+      - number: 3
+        ordinal: 2
+        name: sequence
+      - number: 4
+        ordinal: 3
+        name: scalar
+      - number: 5
+        ordinal: 4
+        name: vector
+      - number: 6
+        ordinal: 5
+        name: cloud
+      - number: 7
+        ordinal: 6
+        name: frame
+  - message: sensors.v1.Robot
+    fields:
+      - number: 1
+        ordinal: 0
+        name: name
+      - number: 2
+        ordinal: 1
+        name: display_name
+      - number: 3
+        ordinal: 2
+        name: serial
+      - number: 4
+        ordinal: 3
+        name: pose
+      - number: 5
+        ordinal: 4
+        name: labels
+      - number: 6
+        ordinal: 5
+        name: create_time
+  - message: sensors.v1.Sensor
+    fields:
+      - number: 1
+        ordinal: 0
+        name: name
+      - number: 2
+        ordinal: 1
+        name: kind
+      - number: 3
+        ordinal: 2
+        name: health
+      - number: 4
+        ordinal: 3
+        name: mount
+      - number: 5
+        ordinal: 4
+        name: firmware
+      - number: 7
+        ordinal: 6
+        name: rate_hz
+  - message: sensors.v1.StreamReadingsRequest
+    fields:
+      - number: 1
+        ordinal: 0
+        name: name
+  - message: sensors.v1.StreamReadingsResponse
+    fields:
+      - number: 1
+        ordinal: 0
+        name: reading
+  - message: sensors.v1.UpdateSensorRequest
+    fields:
+      - number: 1
+        ordinal: 0
+        name: sensor
+      - number: 2
+        ordinal: 1
+        name: update_mask
+  - message: sensors.v1.Vector3
+    fields:
+      - number: 1
+        ordinal: 0
+        name: x
+      - number: 2
+        ordinal: 1
+        name: "y"
+      - number: 3
+        ordinal: 2
+        name: z
+enums:
+  - enum: sensors.v1.HealthState
+    values:
+      - number: 0
+        ordinal: 0
+        name: HEALTH_STATE_UNSPECIFIED
+      - number: 1
+        ordinal: 1
+        name: HEALTH_STATE_HEALTHY
+      - number: 2
+        ordinal: 2
+        name: HEALTH_STATE_DEGRADED
+      - number: 3
+        ordinal: 3
+        name: HEALTH_STATE_FAILED
+  - enum: sensors.v1.SensorKind
+    values:
+      - number: 0
+        ordinal: 0
+        name: SENSOR_KIND_UNSPECIFIED
+      - number: 1
+        ordinal: 1
+        name: SENSOR_KIND_LIDAR
+      - number: 2
+        ordinal: 2
+        name: SENSOR_KIND_CAMERA
+      - number: 3
+        ordinal: 3
+        name: SENSOR_KIND_IMU
+      - number: 4
+        ordinal: 4
+        name: SENSOR_KIND_WHEEL_ENCODER
+services:
+  - service: sensors.v1.SensorService
+    methods:
+      - name: GetSensor
+        ordinal: 0
+      - name: ListSensors
+        ordinal: 1
+      - name: CreateSensor
+        ordinal: 2
+      - name: UpdateSensor
+        ordinal: 3
+      - name: DeleteSensor
+        ordinal: 4
+      - name: StreamReadings
+        ordinal: 5

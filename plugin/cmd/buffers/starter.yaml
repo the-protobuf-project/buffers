@@ -1,0 +1,46 @@
+# buffers.yaml — what to render, from what, to where.
+version: v1
+
+proto:
+  # Directories of .proto files to generate from. Each is also an import root.
+  paths:
+    - proto
+
+  # Additional import roots: compiled, but not generated from.
+  imports: []
+
+  # Alternatively, point at a prebuilt descriptor set and delete `paths` above:
+  #
+  #   buf build -o descriptors.binpb --as-file-descriptor-set
+  #
+  # Reach for this whenever the protos depend on anything buf resolves —
+  # googleapis, a BSR module — because buf has already done the resolution and
+  # nothing here has to reimplement it.
+  # descriptor_set: descriptors.binpb
+
+# Everything is written beneath here.
+out: generated
+
+# The ordinal ledger. Commit it, and run `buffers verify` in CI.
+#
+# It records the target slot every field was assigned. A slot is a wire format: a
+# consumer compiled against a schema where a field sat at ordinal 5 reads slot 5
+# forever, and nothing in any of these formats reports it when a rebuild puts
+# something else there.
+lock: buffers.lock
+
+# Per-rule severity: "" warns on everything, "true" makes everything an error, or
+# name rules individually (ordinal, layout, target, lint). Set ordinal:error once
+# your schemas have consumers.
+strict: ordinal:error
+
+generate:
+  - target: flatbuffers
+    # languages: [cpp, rust]   # runs flatc over the emitted .fbs
+
+  - target: capnp
+    # languages: [go]          # runs capnp compile over the emitted .capnp
+
+  - target: ros
+
+  - target: wire

@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package buffers.v1;
+
+import "buffers/v1/rpc.proto";
+import "buffers/v1/schema.proto";
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/the-protobuf-project/buffers/plugin/pb/bufferspbv1;bufferspbv1";
+option java_multiple_files = true;
+option java_outer_classname = "AnnotationsProto";
+option java_package = "com.buffers.v1";
+
+// annotations.proto is the single import a schema author needs from this plugin:
+//
+//	import "buffers/v1/annotations.proto";
+//
+// buffers.v1 is a *target-shaping* vocabulary. Every option in it answers a
+// question that a specific serialization format asks and protobuf does not: how
+// wide is this enum, is this record packed or evolvable, how long may this array
+// be, which slot does this field occupy.
+//
+// It deliberately says nothing about what anything is called. For a database
+// generator a column name is a policy — entity.v1 exists so two of them agree on
+// it — but for a serialization schema the proto field name is not a policy, it is
+// the mapping. Renaming a field on its way into a .capnp would break the
+// correspondence between the field a producer serializes and the field a consumer
+// reads, which is the one property the whole exercise is for. So there is no
+// naming half of this vocabulary and no entity.v1 dependency; see plugin.yaml.
+//
+// # Precedence, highest first
+//
+//  1. buffers.v1 options              → explicit ordinals, layout, bounds, widths
+//  2. buffers.lock                    → the recorded ordinal for a node seen before
+//  3. google.api.field_behavior       → (required) attributes, doc contracts
+//  4. google.api.resource / http      → ROS .srv shape, Cap'n Proto interface methods
+//  5. the proto's own structure       → field numbers, declaration order, packages
+//
+// The ordering of 1 and 2 is the interesting one, and it is deliberate: an
+// explicit ordinal wins over the ledger, but the plugin reports the disagreement
+// rather than quietly accepting it, because the ledger's whole purpose is to
+// notice a slot moving.
+//
+// Field numbers 50000-99999 are reserved for non-Google options. buffers.v1 uses
+// 53000-53007, clear of entity.v1's 51000-51002, store.v1's 50010-50012,
+// telemetry.v1's 50100-50102, and cache.v1's 52000-52003, so a file may carry any
+// combination of them.
+
+extend google.protobuf.FileOptions {
+  // file names the per-file things each target needs: the FlatBuffers namespace
+  // and identifier, the Cap'n Proto file ID, the ROS package, the JVM package.
+  FileOptions file = 53000;
+}
+
+extend google.protobuf.MessageOptions {
+  // message shapes the record: table or struct, its Cap'n Proto ID, the targets
+  // it belongs to.
+  MessageOptions message = 53001;
+}
+
+extend google.protobuf.FieldOptions {
+  // field shapes the field: its ordinal, its ROS bounds and default, its
+  // FlatBuffers key/shared attributes, its Cap'n Proto group.
+  FieldOptions field = 53002;
+}
+
+extend google.protobuf.EnumOptions {
+  // enumeration shapes the enum: its underlying integer width and whether it is a
+  // bitmask.
+  //
+  // Named `enumeration` rather than `enum` because `enum` is a reserved word in
+  // several of the languages these options are compiled into — including C++ and
+  // Java, where the generated accessor would not compile.
+  EnumOptions enumeration = 53003;
+}
+
+extend google.protobuf.EnumValueOptions {
+  // enum_value pins one enumerant's Cap'n Proto ordinal.
+  EnumValueOptions enum_value = 53004;
+}
+
+extend google.protobuf.OneofOptions {
+  // oneof names the union the oneof becomes in targets that have one.
+  OneofOptions oneof = 53005;
+}
+
+extend google.protobuf.ServiceOptions {
+  // service shapes the call surface: whether an interface is emitted, its
+  // Cap'n Proto ID, whether ROS services are generated.
+  ServiceOptions service = 53006;
+}
+
+extend google.protobuf.MethodOptions {
+  // method shapes one call: its ordinal, its transport, its topic name.
+  MethodOptions method = 53007;
+}

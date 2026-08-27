@@ -1,0 +1,12 @@
+# Proto workspace config (Google API Linter)
+# See: https://github.com/machanirobotics/google-api-linter-vscode
+#
+# Both trees are listed, not just protobuf/. The examples are held to the same
+# AIP bar as the published vocabulary — they are what a reader copies — and
+# leaving them out of the editor's view means the first report of a finding in
+# them is a CI failure.
+#
+# scripts/aip.sh is the authority; this file only tells the editor where to look.
+proto_path:
+  - ./protobuf
+  - ./examples/proto

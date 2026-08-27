@@ -1,0 +1,116 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Lint (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l plugin)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::unformatted files (run: just fmt)"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+
+      # Two house rules no linter covers: golangci-lint's lll is per-line rather
+      # than per-file, and revive's comment rule ignores unexported declarations,
+      # which most of this codebase is.
+      - name: House rules (file length, doc comments)
+        run: ./scripts/audit.sh
+
+  proto:
+    name: Lint (Proto)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          # Pinned, not floated. buf-setup-action's default is far behind
+          # (1.50.0 at time of writing) and a FileDescriptorSet's bytes depend on
+          # the compiler that produced them — so an unpinned buf made the
+          # "descriptor set is current" gate compare a 1.72 artifact against a
+          # 1.50 rebuild and fail on a difference that was purely tooling.
+          #
+          # Keep this in step with the buf a contributor runs locally; `just
+          # regen` is what rebuilds the committed artifacts.
+          version: 1.72.0
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: buf build
+        run: buf build
+
+      - name: buf lint
+        run: buf lint
+
+      - name: Generated stubs up to date
+        run: |
+          buf generate
+          git diff --exit-code -- plugin/pb/ \
+            || (echo "::error::generated stubs are stale — run 'buf generate' and commit" && exit 1)
+
+  aip:
+    name: Lint (AIP)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          # Pinned, not floated. buf-setup-action's default is far behind
+          # (1.50.0 at time of writing) and a FileDescriptorSet's bytes depend on
+          # the compiler that produced them — so an unpinned buf made the
+          # "descriptor set is current" gate compare a 1.72 artifact against a
+          # 1.50 rebuild and fail on a difference that was purely tooling.
+          #
+          # Keep this in step with the buf a contributor runs locally; `just
+          # regen` is what rebuilds the committed artifacts.
+          version: 1.72.0
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install api-linter
+        run: go install github.com/googleapis/api-linter/cmd/api-linter@latest
+
+      # No config file and no disabled rule, for both the published vocabulary
+      # and the examples. This plugin generates schema *from* AIP-shaped protos;
+      # holding its users to a bar it ducks itself would be incoherent. The
+      # examples are included because they are what a reader copies.
+      - name: api-linter
+        run: ./scripts/aip.sh

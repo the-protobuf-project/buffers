@@ -1,0 +1,80 @@
+# What protoc-gen-buffers is, declared for anything that has to compose plugins.
+#
+# protokit's manifest package parses and validates this file; it deliberately
+# resolves nothing — no module is fetched, no constraint is compared against a
+# real version. So this is useful for exactly two things today: telling a human
+# what the plugin expects, and failing fast when that declaration contradicts
+# itself. Decoding is strict, so every key below is one the schema knows.
+
+# The vocabulary this plugin owns and the key its FacetReader registers under.
+provides: buffers
+
+# buffers runs on its own. Unlike protoc-gen-cache, which decorates another
+# plugin's output and is meaningless without it, a .fbs or .capnp schema is a
+# complete artifact: the protos and the AIP annotations on them are the only
+# input required.
+requires: []
+
+# Proto modules and the versions of them this plugin needs.
+#   buffers     — this plugin's own options.
+#   googleapis  — google.api.resource / field_behavior / resource_reference. Not
+#                 optional in any sense. Field behavior is what turns into a
+#                 FlatBuffers (required) attribute and a Cap'n Proto doc contract;
+#                 the resource annotations are what let a ROS .srv be shaped like
+#                 the AIP standard method it implements rather than like a
+#                 hand-rolled struct pair.
+annotations:
+  buf.build/the-protobuf-project/buffers: '^1'
+  buf.build/googleapis/googleapis: '^1'
+
+# A property of what the plugin *emits*, not of what builds it. These are the
+# toolchain floors the emitted schemas assume:
+#
+#   flatc  2.0 introduced `= null` optional scalars, which is the only honest
+#          rendering of proto3 explicit presence in a table. That is the floor for
+#          the *schema*; Go output additionally wants 23.1.4, which is where
+#          --go-module-name arrived — without it a generated Go package's
+#          cross-file imports resolve against no module. An older flatc is
+#          tolerated and warned about rather than refused.
+#   capnp  0.9 is the floor for the generics and stream conventions the RPC
+#          interfaces emit.
+#   wire   5.0 is where the Gradle plugin's `kotlin { rpcRole }` block settled.
+runtime:
+  flatc: '>=2.0'   # >=23.1.4 for compilable Go output
+  capnp: '>=0.9'
+  wire: '>=5.0'
+
+facets:
+  # What this plugin reads back out of the IR, per node.
+  #
+  # buffers.v1 is absent despite being read on every node, for the reason store's
+  # manifest gives about store.v1: this plugin provides it, so declaring a
+  # dependency on it would say nothing.
+  reads: []
+
+  # Deliberately empty, and the omission worth explaining is entity.v1.
+  #
+  # Every other protokit plugin reads the neutral vocabulary so that two
+  # generators over one set of protos agree on what a thing is *named*. buffers
+  # does not, because for a serialization schema the proto name is not a naming
+  # policy — it is the mapping. entity.v1's `column: "author_id"` renames a column
+  # for a database that has its own conventions; applying the same rename to a
+  # .capnp field would silently break the correspondence between the proto field a
+  # producer serializes and the Cap'n Proto field a consumer reads. The names here
+  # are not this plugin's to choose, so there is nothing for it to agree about.
+  optional_reads: []
+
+# The footprint, relative to the plugin's output directory.
+#
+# buffers.lock is listed because it is a real output that a composing run must
+# not let a second plugin claim: it is the ordinal ledger, and two writers would
+# make it worthless. See plugin/factory/bufir/lock.go.
+outputs:
+  - '**/*.fbs'
+  - '**/*.capnp'
+  - '**/*.msg'
+  - '**/*.srv'
+  - '**/*.proto'
+  - '**/*.gradle.kts'
+  - '**/*.kt'
+  - 'buffers.lock'

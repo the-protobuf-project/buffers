@@ -1,0 +1,160 @@
+version: 2
+project_name: buffers
+
+before:
+  hooks:
+    - go mod tidy
+    # The toolchain tests skip when flatc and capnp are absent, which they are on
+    # a release runner unless installed. That is intentional here: the release
+    # gate is that the code builds and its unit and golden tests pass. Whether the
+    # emitted schema compiles is asserted in test.yaml, where the compilers are
+    # installed, and a tag is only ever cut from a commit that passed it.
+    - go test ./...
+
+builds:
+  # Two binaries, because there are two entry points and the split is the design.
+  # protoc-gen-buffers runs inside someone else's protoc invocation and shells out
+  # to nothing; buffers compiles protos itself and drives flatc and capnp. Someone
+  # who only wants the buf plugin should not be installing a proto compiler and a
+  # cobra CLI to get it.
+  - id: protoc-gen-buffers
+    binary: protoc-gen-buffers
+    main: ./plugin/cmd/protoc-gen-buffers
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: buffers
+    binary: buffers
+    main: ./plugin/cmd/buffers
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  # One archive carrying both binaries. They are versioned together and the
+  # ordinal ledger one writes is the ledger the other verifies, so a mismatched
+  # pair is a real hazard rather than a theoretical one.
+  - id: buffers-archive
+    ids: [protoc-gen-buffers, buffers]
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}amd64
+      {{- else if eq .Arch "arm64" }}arm64
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-next'
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - typo
+
+# Homebrew cask, generated and committed to the tap on each release. The url and
+# sha256 for every platform are filled in from the archives above, so there is no
+# checksum to hand-maintain.
+homebrew_casks:
+  - name: buffers
+    repository:
+      owner: the-protobuf-project
+      name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
+    directory: Casks
+    homepage: 'https://github.com/the-protobuf-project/buffers'
+    description: 'Generate FlatBuffers, Cap n Proto, ROS and Wire schema from AIP-annotated protobuf'
+    ids:
+      - buffers-archive
+    binaries:
+      - protoc-gen-buffers
+      - buffers
+    url:
+      verified: 'github.com/the-protobuf-project/buffers/'
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/protoc-gen-buffers"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/buffers"]
+          end
+
+release:
+  github:
+    owner: the-protobuf-project
+    name: buffers
+  draft: false
+  prerelease: auto
+  name_template: 'v{{.Version}}'
+  header: |
+    ## What's New in v{{.Version}}
+
+    `buffers` turns AIP-annotated protobuf into FlatBuffers, Cap'n Proto (with
+    RPC), ROS 2 and Square Wire schema — pinning every field to a target slot
+    that does not move between runs.
+
+    Two binaries ship together: `protoc-gen-buffers` (the buf/protoc plugin) and
+    `buffers` (the CLI, which also drives flatc and capnp).
+
+    ### Installation
+
+    #### Homebrew
+    ```bash
+    brew install the-protobuf-project/tap/buffers
+    ```
+
+    #### Manual (macOS / Linux)
+    ```bash
+    # Pick your platform, e.g. darwin_arm64 / linux_amd64
+    curl -LO https://github.com/the-protobuf-project/buffers/releases/download/v{{.Version}}/buffers_{{.Version}}_darwin_arm64.tar.gz
+    tar -xzf buffers_{{.Version}}_darwin_arm64.tar.gz
+    sudo mv protoc-gen-buffers buffers /usr/local/bin/
+    ```
+
+    Then reference the plugin from `buf.gen.yaml`:
+    ```yaml
+    plugins:
+      - local: protoc-gen-buffers
+        out: schema/capnp
+        opt:
+          - target=capnp          # flatbuffers | capnp | ros | wire
+          - lock=buffers.lock     # the ordinal ledger; commit it
+          - strict=ordinal:error
+    ```
+
+    And remember to commit `buffers.lock` and run `buffers verify` in CI — it is
+    what turns a moved field slot from a silent wire break into a failed build.

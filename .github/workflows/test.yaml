@@ -1,0 +1,164 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The toolchain tests compile every emitted schema with the real
+      # compilers, and skip when the binary is absent — a machine without flatc
+      # is a normal machine, and this repository's correctness does not depend on
+      # what happens to be installed on it. Installing them here is therefore not
+      # optional dressing: it is what makes the strongest test in the suite
+      # actually run rather than silently pass.
+      - name: Install flatc and capnp
+        run: |
+          sudo apt-get update
+          # libcapnp-dev, not just capnproto: Ubuntu splits the compiler from
+          # the schema files it needs. `capnproto` ships /usr/bin/capnp and
+          # nothing under /usr/include/capnp, so every generated schema fails to
+          # compile with "Import failed: /capnp/c++.capnp" — which reads as a
+          # defect in the emitted schema and is a missing package.
+          sudo apt-get install -y capnproto libcapnp-dev
+          capnp --version
+          test -f /usr/include/capnp/c++.capnp
+
+      # flatc from a release rather than from apt, which still ships 2.0.8 —
+      # older than --go-module-name (flatbuffers 23.1.4). The code tolerates that
+      # flatc and says what it costs, but a CI that only ever saw the old one
+      # would skip the test proving generated Go compiles, which is the whole
+      # point of having it.
+      - name: Install flatc
+        env:
+          FLATC_VERSION: '25.2.10'
+        run: |
+          curl -fsSL -o /tmp/flatc.zip \
+            "https://github.com/google/flatbuffers/releases/download/v${FLATC_VERSION}/Linux.flatc.binary.g++-13.zip"
+          unzip -q -o /tmp/flatc.zip -d /tmp/flatc
+          sudo install -m 0755 /tmp/flatc/flatc /usr/local/bin/flatc
+          flatc --version
+          flatc --help | grep -q -- --go-module-name
+
+      # Cap'n Proto ships only its C++ generator. capnpc-go is what makes the Go
+      # path testable at all, and the Go path is the one carrying the annotation
+      # machinery — a schema missing $Go.package compiles fine as C++ and fails
+      # only here.
+      - name: Install capnpc-go
+        run: go install capnproto.org/go/capnp/v3/capnpc-go@latest
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Test
+        run: go test -race ./...
+
+      # The generated schema is the deliverable, so the ledger this repository
+      # ships for its own examples has to satisfy the guarantee the tool sells.
+      # If `buffers verify` cannot pass here, no consumer should trust it either.
+      - name: Verify the ordinal ledger
+        run: go run ./plugin/cmd/buffers verify --config examples/buffers.yaml
+
+  examples:
+    name: Examples reproduce
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          # Pinned, not floated. buf-setup-action's default is far behind
+          # (1.50.0 at time of writing) and a FileDescriptorSet's bytes depend on
+          # the compiler that produced them — so an unpinned buf made the
+          # "descriptor set is current" gate compare a 1.72 artifact against a
+          # 1.50 rebuild and fail on a difference that was purely tooling.
+          #
+          # Keep this in step with the buf a contributor runs locally; `just
+          # regen` is what rebuilds the committed artifacts.
+          version: 1.72.0
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The example config compiles the emitted schema into eight languages, so
+      # this job needs the same toolchains the test job does.
+      - name: Install toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y capnproto libcapnp-dev
+          curl -fsSL -o /tmp/flatc.zip \
+            "https://github.com/google/flatbuffers/releases/download/v25.2.10/Linux.flatc.binary.g++-13.zip"
+          unzip -q -o /tmp/flatc.zip -d /tmp/flatc
+          sudo install -m 0755 /tmp/flatc/flatc /usr/local/bin/flatc
+          go install capnproto.org/go/capnp/v3/capnpc-go@latest
+
+      # examples/descriptors.binpb is committed because the examples import
+      # googleapis, which buf resolves from the BSR — the golden tests would
+      # otherwise need a network fetch to run. Rebuilding it here catches the
+      # case where it has drifted from the .proto files beside it, which would
+      # quietly make every golden assert against a stale schema.
+      - name: Descriptor set is current
+        run: |
+          buf build examples/proto -o examples/descriptors.binpb --as-file-descriptor-set
+          git diff --exit-code -- examples/descriptors.binpb \
+            || (echo "::error::examples/descriptors.binpb is stale — rebuild it and commit: buf build examples/proto -o examples/descriptors.binpb --as-file-descriptor-set" && exit 1)
+
+      # The committed examples are what a reader copies, so a change that alters
+      # them without updating them is a change to the documentation too.
+      - name: Committed examples are current
+        run: |
+          go run ./plugin/cmd/buffers generate --config examples/buffers.yaml
+          git diff --exit-code -- examples/generated/ \
+            || (echo "::error::examples/generated is stale — run 'just examples' and commit" && exit 1)
+
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Both entry points are built for every platform. They are deliberately
+      # separate binaries — the plugin never shells out to a toolchain — so a
+      # break in one does not show up in the other's build.
+      - name: Build binaries
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -ldflags "-s -w" -o /dev/null ./plugin/cmd/protoc-gen-buffers
+          go build -ldflags "-s -w" -o /dev/null ./plugin/cmd/buffers

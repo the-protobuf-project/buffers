@@ -1,0 +1,170 @@
+syntax = "proto3";
+
+package sensors.v1;
+
+import "buffers/v1/annotations.proto";
+import "google/api/annotations.proto";
+import "google/api/client.proto";
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "sensors/v1/sensors.proto";
+
+option go_package = "github.com/the-protobuf-project/buffers/examples/gen/sensorsv1;sensorsv1";
+option java_multiple_files = true;
+option java_outer_classname = "SensorsServiceProto";
+option java_package = "com.sensors.v1";
+option (buffers.v1.file) = {
+  namespace: "sensors.v1"
+  ros_package: "sensors_msgs"
+};
+
+// SensorService manages the sensors on a fleet of robots.
+//
+// Its methods are ordinary AIP standard methods, which is the point: nothing in
+// this file is written for the sake of the serialization targets. The Cap'n
+// Proto interface, the ROS .srv pair per call, and the ROS topic for the
+// streaming method are all derived from the AIP shape the service already has.
+service SensorService {
+  option (google.api.default_host) = "sensors.example.com";
+
+  // GetSensor returns one sensor.
+  rpc GetSensor(GetSensorRequest) returns (Sensor) {
+    option (google.api.http) = {get: "/v1/{name=robots/*/sensors/*}"};
+    option (google.api.method_signature) = "name";
+  }
+
+  // ListSensors returns the sensors on a robot.
+  rpc ListSensors(ListSensorsRequest) returns (ListSensorsResponse) {
+    option (google.api.http) = {get: "/v1/{parent=robots/*}/sensors"};
+    option (google.api.method_signature) = "parent";
+  }
+
+  // CreateSensor registers a sensor on a robot.
+  rpc CreateSensor(CreateSensorRequest) returns (Sensor) {
+    option (google.api.http) = {
+      post: "/v1/{parent=robots/*}/sensors"
+      body: "sensor"
+    };
+    option (google.api.method_signature) = "parent,sensor,sensor_id";
+  }
+
+  // UpdateSensor mutates a sensor.
+  rpc UpdateSensor(UpdateSensorRequest) returns (Sensor) {
+    option (google.api.http) = {
+      patch: "/v1/{sensor.name=robots/*/sensors/*}"
+      body: "sensor"
+    };
+    option (google.api.method_signature) = "sensor,update_mask";
+  }
+
+  // DeleteSensor removes a sensor.
+  rpc DeleteSensor(DeleteSensorRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/{name=robots/*/sensors/*}"};
+    option (google.api.method_signature) = "name";
+  }
+
+  // StreamReadings publishes every reading a sensor produces.
+  //
+  // Server streaming is what makes this a publication rather than a call, and
+  // the plugin would classify it that way from the `stream` keyword alone. The
+  // explicit transport is belt and braces; the topic name is the part nothing
+  // else can supply.
+  rpc StreamReadings(StreamReadingsRequest) returns (stream StreamReadingsResponse) {
+    option (google.api.http) = {
+      post: "/v1/{name=robots/*/sensors/*}:streamReadings"
+      body: "*"
+    };
+    option (google.api.method_signature) = "name";
+    option (buffers.v1.method) = {
+      transport: TRANSPORT_TOPIC
+      topic: "sensor_readings"
+    };
+  }
+}
+
+// GetSensorRequest is the request for SensorService.GetSensor.
+message GetSensorRequest {
+  // name is the sensor to return.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "sensors.example.com/Sensor"}
+  ];
+}
+
+// ListSensorsRequest is the request for SensorService.ListSensors.
+message ListSensorsRequest {
+  // parent is the robot whose sensors to list.
+  string parent = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "sensors.example.com/Robot"}
+  ];
+
+  // page_size is the maximum number of sensors to return.
+  int32 page_size = 2 [(google.api.field_behavior) = OPTIONAL];
+
+  // page_token continues a previous call.
+  string page_token = 3 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// ListSensorsResponse is the response for SensorService.ListSensors.
+message ListSensorsResponse {
+  // sensors are the sensors on the robot.
+  repeated Sensor sensors = 1;
+
+  // next_page_token continues this call, or is empty at the end.
+  string next_page_token = 2;
+}
+
+// CreateSensorRequest is the request for SensorService.CreateSensor.
+message CreateSensorRequest {
+  // parent is the robot to mount the sensor on.
+  string parent = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "sensors.example.com/Robot"}
+  ];
+
+  // sensor_id is the id to give the new sensor.
+  string sensor_id = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // sensor is the sensor to create.
+  Sensor sensor = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+// UpdateSensorRequest is the request for SensorService.UpdateSensor.
+message UpdateSensorRequest {
+  // sensor carries the new values and, in its name, which sensor to update.
+  Sensor sensor = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // update_mask lists the fields to change.
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// DeleteSensorRequest is the request for SensorService.DeleteSensor.
+message DeleteSensorRequest {
+  // name is the sensor to remove.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "sensors.example.com/Sensor"}
+  ];
+
+  // force removes the sensor even when it still has readings under it.
+  bool force = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// StreamReadingsRequest is the request for SensorService.StreamReadings.
+message StreamReadingsRequest {
+  // name is the sensor to subscribe to.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "sensors.example.com/Sensor"}
+  ];
+}
+
+// StreamReadingsResponse is one element of the SensorService.StreamReadings
+// stream.
+message StreamReadingsResponse {
+  // reading is the sample the sensor produced.
+  Reading reading = 1;
+}

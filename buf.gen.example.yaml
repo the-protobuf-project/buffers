@@ -1,0 +1,53 @@
+version: v2
+
+# Renders the example protos with the build under test, into examples/generated.
+#
+# One invocation per target, because a protoc plugin is selected once per plugin
+# entry and each target owns its own output tree. `just examples` runs this with
+# ./bin prepended to PATH so a globally installed protoc-gen-buffers cannot
+# shadow the binary being tested.
+inputs:
+  - directory: examples/proto
+
+plugins:
+  - local: protoc-gen-buffers
+    out: examples/generated/flatbuffers
+    opt:
+      - target=flatbuffers
+      - lock=examples/generated/buffers.lock
+      - strict=ordinal:error
+      - lang=cpp
+      - lang=go
+      - lang=rust
+      - lang=python
+      - lang=java
+      - lang=kotlin
+      - lang=swift
+      - lang=dart
+
+  - local: protoc-gen-buffers
+    out: examples/generated/capnp
+    opt:
+      - target=capnp
+      - lock=examples/generated/buffers.lock
+      - strict=ordinal:error
+      # These two mirror examples/buffers.yaml. They have to: `just examples`
+      # renders through this plugin and `buffers generate` renders through the
+      # CLI, and if the options differ the two produce different schema for the
+      # same protos — which the "committed examples are current" CI gate then
+      # reports as a stale tree on every other run.
+      - lang=c++
+      - lang=go
+      - go_module=github.com/the-protobuf-project/buffers/examples/generated/_lang/capnp/go
+
+  - local: protoc-gen-buffers
+    out: examples/generated/ros
+    opt:
+      - target=ros
+      - lock=examples/generated/buffers.lock
+
+  - local: protoc-gen-buffers
+    out: examples/generated/wire
+    opt:
+      - target=wire
+      - lock=examples/generated/buffers.lock

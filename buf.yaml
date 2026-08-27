@@ -1,0 +1,53 @@
+version: v2
+
+# This buf.yaml defines a workspace:
+#   protobuf/buffers/  — a publishable BSR module (buf.build/the-protobuf-project/buffers)
+#   examples/proto/    — sample annotated protos that consume the options (local only)
+#
+# buffers.v1 is this plugin's *target-shaping* vocabulary: whether a message
+# becomes a FlatBuffers struct or a table, which Cap'n Proto ordinal a field is
+# pinned to, how wide a ROS array may be. It deliberately does not restate what
+# entity.v1 already owns — a thing's *name* — because a serialization schema and a
+# database schema over the same protos must agree on that, and the only way two
+# plugins agree is by running the same reader rather than by each inventing one.
+#
+# The module is rooted at protobuf/ with `includes`, rather than at
+# protobuf/buffers/, because buf derives a proto's import path from its module
+# root. A module rooted at protobuf/buffers would publish "v1/annotations.proto";
+# rooted at protobuf/ with includes, it publishes "buffers/v1/annotations.proto",
+# which is what every importing proto writes.
+#
+# Only protobuf/ has a BSR name, so publish with:
+#   buf push --exclude-unnamed
+# A bare `buf push` errors on the unnamed module.
+modules:
+  - path: protobuf
+    includes: [protobuf/buffers]
+    name: buf.build/the-protobuf-project/buffers
+
+  - path: examples/proto
+    # examples/proto can import buffers options and googleapis because they share
+    # this workspace; no separate buf dep update needed during development.
+    #
+    # The examples are AIP services, and AIP and buf's STANDARD lint disagree about
+    # RPC naming: AIP-131 says GetSensor returns the resource, `Sensor`, while
+    # RPC_RESPONSE_STANDARD_NAME wants `GetSensorResponse`. The examples exist to
+    # demonstrate what this plugin does with a correctly written AIP surface, so
+    # AIP wins and the three rules that encode the disagreement are excepted here
+    # — for the examples module only, not for the published vocabulary above.
+    lint:
+      use:
+        - STANDARD
+      except:
+        - RPC_REQUEST_STANDARD_NAME
+        - RPC_RESPONSE_STANDARD_NAME
+        - RPC_REQUEST_RESPONSE_UNIQUE
+
+deps:
+  - buf.build/googleapis/googleapis # google.api.resource, field_behavior, resource_reference
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX # buffers.v1 is intentionally version-suffixed

@@ -1,0 +1,26 @@
+# golangci-lint configuration.
+#
+# The default linter set is kept as-is. The only adjustment is to errcheck, and
+# it is narrow on purpose: an unchecked error is worth reporting almost
+# everywhere, and blanket-disabling the linter to silence one category would give
+# up the rest of it.
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # Writes to a CLI's own stdout and stderr. There is nothing to do with the
+      # error — reporting a failed write by attempting another write is circular,
+      # and a CLI whose stdout is a closed pipe is already in the state the
+      # caller intended. Every *file* write in this repository is checked, which
+      # is the case that actually matters.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+
+issues:
+  # Report everything rather than the default first-3-per-linter, so one run
+  # shows the whole list instead of revealing it a few at a time.
+  max-issues-per-linter: 0
+  max-same-issues: 0
