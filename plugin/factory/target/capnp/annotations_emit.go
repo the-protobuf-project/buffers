@@ -155,3 +155,36 @@ func (r *run) warnEnumOnlyGo(f *buffers.File, msgs []*buffers.Message, enums []*
 			"the file, or generate this file's Go with a patched capnpc-go",
 	})
 }
+
+// warnInterfacesForJava reports a schema Java cannot be generated from.
+//
+// capnproto-java implements serialization only — capnproto.org lists it that way
+// — and its plugin does not decline an interface, it aborts on one:
+//
+//	*** Uncaught exception ***
+//	main/cpp/capnpc-java.c++:1675: failed: interfaces not implemented
+//
+// which names a line in someone else's C++ and nothing about the schema that
+// caused it. The RPC interfaces this target emits are exactly what triggers it,
+// so a schema with a service compiles as C++, Go and Rust and dies here.
+//
+// Kotlin is covered by the same check without naming it: Cap'n Proto has no
+// Kotlin generator, so a Kotlin run is a Java run.
+func (r *run) warnInterfacesForJava(f *buffers.File, svcs []*buffers.Service) {
+	if !r.annotations["java"] || len(svcs) == 0 {
+		return
+	}
+	names := make([]string, len(svcs))
+	for i, s := range svcs {
+		names[i] = s.Name
+	}
+	r.collect(&buffers.Diagnostic{
+		Rule: buffers.RuleTarget,
+		Node: buffers.NodeID(f.Path),
+		Message: fmt.Sprintf("%s emits interfaces for %s, and capnproto-java implements serialization "+
+			"only — capnpc-java aborts on an interface with \"failed: interfaces not implemented\" "+
+			"rather than reporting it", f.Path, strings.Join(names, ", ")),
+		Hint: "keep the services out of the Java build with (buffers.v1.service).targets, or take " +
+			"Java from the FlatBuffers or Thrift target, both of which generate a service surface",
+	})
+}

@@ -56,6 +56,14 @@ func compile(cmd *cobra.Command, cfg *config.Config, entries []config.Entry, ove
 		warnOldFlatcForGo(cmd, e, languages)
 
 		for _, l := range languages {
+			// Some languages consume the emitted schema directly and have no
+			// generator to run — see langs/runtimeloaded.go. Saying so is the
+			// whole job; there is nothing to invoke.
+			if note, ok := langs.RuntimeLoaded(e.Target, l); ok {
+				fmt.Fprintf(cmd.OutOrStdout(), "%-12s   %s (%s)\n", e.Target, note, l)
+				continue
+			}
+
 			out := cfg.LangDir(e, l)
 			// One invocation per source directory rather than one for everything:
 			// the output path and the package flags both vary per directory, and

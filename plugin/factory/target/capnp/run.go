@@ -72,6 +72,7 @@ func (r *run) file(f *buffers.File) ([]byte, error) {
 	r.aliases = r.assignAliases(f)
 	r.sinks = nil
 	r.warnEnumOnlyGo(f, msgs, enums, svcs)
+	r.warnInterfacesForJava(f, svcs)
 
 	var b emit.Buf
 	for _, e := range enums {

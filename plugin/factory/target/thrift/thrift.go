@@ -72,12 +72,25 @@ func (t *Target) Name() string { return "thrift" }
 // the friendlier ones the other targets use, because they are passed through to
 // `--gen` unchanged and a translation table would be one more place for a typo to
 // hide. names.go maps the few obvious aliases.
+//
+// The list is transcribed from `thrift --help`, and TestDeclaredLanguagesExist
+// checks it against the installed compiler rather than against the documentation.
+// That test exists because the first version of this list was written from docs
+// and got it wrong in both directions: it claimed `swift` and `hs`, which this
+// compiler does not have, and omitted `kotlin`, which it does — so `--lang
+// kotlin` was refused here for a generator that works.
+//
+// Six of these emit something other than a language — `gv` is GraphViz, `html`,
+// `markdown` and `mmd` are documentation, `json` and `xml` and `xsd` describe the
+// schema. They are listed because thrift will produce them and there is no reason
+// to refuse.
 func (t *Target) Languages() []string {
 	return []string{
 		schemaOnly,
-		"c_glib", "cpp", "d", "dart", "delphi", "erl", "go", "haxe", "hs", "html",
-		"java", "javame", "js", "json", "lua", "netstd", "ocaml", "perl", "php",
-		"py", "rb", "rs", "st", "swift", "xml",
+		"c_glib", "cl", "cpp", "d", "dart", "delphi", "erl", "go", "gv", "haxe",
+		"html", "java", "javame", "js", "json", "kotlin", "lua", "markdown",
+		"mmd", "netstd", "ocaml", "perl", "php", "py", "rb", "rs", "st", "xml",
+		"xsd",
 	}
 }
 

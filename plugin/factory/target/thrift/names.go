@@ -156,7 +156,6 @@ var languageAliases = map[string]string{
 	"c#":         "netstd",
 	"csharp":     "netstd",
 	"erlang":     "erl",
-	"haskell":    "hs",
 	"javascript": "js",
 	"python":     "py",
 	"ruby":       "rb",

@@ -51,7 +51,6 @@ var capnpGenerators = map[string]string{
 	"rust":   "rust",
 	"java":   "java",
 	"kotlin": "java", // capnproto-java output is used from Kotlin via JVM interop
-	"python": "python",
 	"ts":     "ts",
 	"csharp": "csharp",
 }
@@ -62,7 +61,6 @@ var capnpPlugins = map[string]string{
 	"capnpc-go":     "go install capnproto.org/go/capnp/v3/capnpc-go@latest",
 	"capnpc-rust":   "cargo install capnpc",
 	"capnpc-java":   "see https://github.com/capnproto/capnproto-java",
-	"capnpc-python": "pip install pycapnp",
 	"capnpc-ts":     "npm install -g capnpc-ts",
 	"capnpc-csharp": "see https://github.com/c80k/capnproto-dotnet",
 }

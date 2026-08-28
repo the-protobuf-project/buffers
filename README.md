@@ -69,7 +69,7 @@ flowchart LR
     IR --> WR["wire.gradle.kts"]
     FB --> FC["flatc → 15 backends"]
     CP --> CC["capnp → 8 backends"]
-    TH --> TC["thrift → 25 backends"]
+    TH --> TC["thrift → 29 backends"]
 ```
 
 ## The problem it actually solves
@@ -167,7 +167,7 @@ buf build proto -o descriptors.binpb --as-file-descriptor-set
 |---|---|---|---|
 | `flatbuffers` | `.fbs` | `flatc` | **cpp, csharp, dart, go, java, kotlin, kotlin-kmp, lobster, lua, nim, php, python, rust, swift, ts** |
 | `capnp` | `.capnp` + RPC interfaces | `capnp` + a `capnpc-<lang>` plugin | c++, go, rust, java, kotlin, python, ts, csharp |
-| `thrift` | `.thrift` + services | `thrift` | **c_glib, cpp, d, dart, delphi, erl, go, haxe, hs, html, java, js, lua, netstd, ocaml, perl, php, py, rb, rs, st, swift, xml** |
+| `thrift` | `.thrift` + services | `thrift` | **c_glib, cl, cpp, d, dart, delphi, erl, go, gv, haxe, html, java, javame, js, json, kotlin, lua, markdown, mmd, netstd, ocaml, perl, php, py, rb, rs, st, xml, xsd** |
 | `ros` | `.msg`, `.srv`, `topics.yaml` | rosidl, via colcon | c, cpp, python |
 | `wire` | `wire.gradle.kts`, `Topics.kt` | Wire, via Gradle | kotlin, java, swift |
 
@@ -176,14 +176,52 @@ buf build proto -o descriptors.binpb --as-file-descriptor-set
 `buffers targets` prints this for your machine, and `buffers doctor` prints what
 is missing and the exact command to install it.
 
-| Language | Reach it via |
-|---|---|
-| Go, Rust, Python, Java, Kotlin | `flatbuffers`, `capnp` or `thrift` |
-| **Swift, Dart** | `flatbuffers` or `thrift` — no Cap'n Proto generator exists for either |
-| C++ | `flatbuffers`, `capnp`, `thrift`, or `ros` |
-| C#, TypeScript, PHP, Lua | `flatbuffers` (or `capnp` for C#/TS, `thrift` for C#/PHP/Lua) |
-| **Erlang, OCaml, Perl, Ruby, D, Haxe** | `thrift` — the only target that reaches any of them |
-| Nim, Lobster | `flatbuffers` |
+Every cell below was produced by running the real compiler over this
+repository's own emitted schema. ✅ means verified here; ⬚ means the generator
+exists upstream but is a separate install this machine did not have; ❌ means no
+generator exists at all.
+
+| Language | `flatbuffers` | `capnp` | `thrift` | `ros` | `wire` |
+|---|:--:|:--:|:--:|:--:|:--:|
+| **C++** | ✅ | ✅ built in | ✅ | ✅ | – |
+| **Go** | ✅ | ✅ `capnpc-go` | ✅ | – | – |
+| **Rust** | ✅ | ✅ `capnpc-rust` | ✅ `rs` | – | – |
+| **Python** | ✅ | ✅ †runtime-loaded | ✅ `py` | ✅ | – |
+| **Java** | ✅ | ✅ ‡no interfaces | ✅ | – | ✅ |
+| **Kotlin** | ✅ | ✅ ‡via `capnpc-java` | ✅ | – | ✅ |
+| **Dart** | ✅ | ❌ none exists | ✅ | – | – |
+| **Swift** | ✅ | ❌ none exists | ❌ not in 0.24 | – | ✅ |
+
+**Every language above is reachable, and FlatBuffers alone covers all of them** —
+which is why it is the one to reach for when a project spans every client you
+have.
+
+Two Cap'n Proto cells carry a caveat, and `buffers` reports both rather than
+letting you meet them as a crash:
+
+- **†Python has no generator, and needs none.** pycapnp loads the schema when
+  your program starts — `capnp.load("sensors/v1/sensors.capnp")` — so the emitted
+  `.capnp` *is* the deliverable. `--lang python` says so and compiles nothing.
+- **‡Java and Kotlin cannot carry the RPC interfaces.** capnproto-java is
+  serialization-only and its plugin aborts on an interface with
+  `failed: interfaces not implemented`, naming a line in its own C++. The build
+  warns first, names the service, and points at
+  `(buffers.v1.service).targets` — messages generate fine without it. Kotlin is
+  the same path, since Cap'n Proto has no Kotlin generator and Kotlin consumes
+  the Java output over JVM interop.
+
+The ❌ cells are upstream facts, not omissions here.
+[Cap'n Proto's own list of implementations](https://capnproto.org/otherlang.html)
+names no Swift, Dart or Kotlin implementation; the only `capnpc-swift` is an
+[abandoned work in progress](https://github.com/Danappelxx/capnpc-swift). And
+Thrift ships no Swift generator in 0.24 whatever its documentation suggests — the
+language list above is transcribed from `thrift --help` and checked against the
+installed binary by a test, because the first version of it was written from docs
+and claimed two generators that do not exist while omitting one that does.
+
+Wider than the seven: `thrift` is the only target reaching Erlang, OCaml, Perl,
+Ruby, D, Haxe or Common Lisp; `flatbuffers` is the only one reaching Nim or
+Lobster; both reach C#, TypeScript, PHP and Lua.
 
 FlatBuffers and Thrift are the two broad ones. Every entry in the FlatBuffers row
 was verified by running `flatc` against this repository's own emitted schema;
@@ -195,7 +233,7 @@ How far one `.proto` reaches, by backend count:
 ```mermaid
 sankey-beta
 
-protobuf,thrift,25
+protobuf,thrift,29
 protobuf,flatbuffers,15
 protobuf,capnp,8
 protobuf,ros,3
@@ -203,8 +241,9 @@ protobuf,wire,3
 ```
 
 The widths are generator backends, as `buffers targets` counts them, not a quality
-ranking. Three of Thrift's twenty-five emit HTML, JSON and XML rather than a
-language; Cap'n Proto's eight each need their own `capnpc-` plugin installed,
+ranking. Seven of Thrift's twenty-nine emit documentation or a schema description
+rather than a language — GraphViz, HTML, Markdown, Mermaid, JSON, XML and XSD;
+Cap'n Proto's eight each need their own `capnpc-` plugin installed,
 while Thrift's and FlatBuffers' are built into the one binary. Reach is one axis —
 what each format can actually *hold* is the next section, and it runs the other
 way.
