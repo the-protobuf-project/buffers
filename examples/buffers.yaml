@@ -34,21 +34,29 @@ generate:
     lang_out: _lang/flatbuffers
     go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/flatbuffers/go
 
-  # c++ ships with capnp; go needs capnpc-go on PATH. Both are exercised here
-  # because the Go generator is the one that rejects an unannotated schema, and a
-  # config that only ever compiled c++ would not notice.
+  # c++ ships with capnp; go and rust need capnpc-go and capnpc-rust on PATH.
+  # All three are exercised because the Go generator is the one that rejects an
+  # unannotated schema, and a config that only ever compiled c++ would not notice.
+  #
+  # java and kotlin are deliberately absent. capnproto-java is serialization-only
+  # and its plugin aborts on an interface, which this schema has; the target warns
+  # about it, and putting it here would make `just langs` fail by design. python is
+  # absent because pycapnp loads the .capnp at run time — there is nothing to
+  # compile.
   - target: capnp
-    languages: [c++, go]
+    languages: [c++, go, rust]
     lang_out: _lang/capnp
     go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/capnp/go
 
-  # Apache Thrift. go is here because it is the one Thrift backend with a
-  # resolution hazard — without package_prefix the generated code imports
-  # cross-package types by bare path, which resolves against no module, exactly
-  # as flatc does without --go-module-name. py is cheap and exercises the
-  # namespace tree.
+  # Apache Thrift. Every language this repository promises that thrift can
+  # actually produce — swift is absent because thrift 0.24 has no swift
+  # generator, whatever the docs say; the FlatBuffers entry above covers it.
+  #
+  # go is the one with a resolution hazard: without package_prefix the generated
+  # code imports cross-package types by bare path, which resolves against no
+  # module, exactly as flatc does without --go-module-name.
   - target: thrift
-    languages: [go, py]
+    languages: [go, rs, py, java, kotlin, dart]
     lang_out: _lang/thrift
     go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/thrift/go
 

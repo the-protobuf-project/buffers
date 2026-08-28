@@ -136,5 +136,12 @@ func reportCapnpPlugins(cmd *cobra.Command) int {
 
 	fmt.Fprintln(cmd.OutOrStdout(),
 		"\nA missing capnp generator only matters for the language it produces; the\nschema is emitted either way.")
+
+	// Languages with no plugin at all, because none is needed. Absent from the
+	// table above they would read as unsupported, which is backwards.
+	for _, lang := range langs.RuntimeLoadedFor("capnp") {
+		note, _ := langs.RuntimeLoaded("capnp", lang)
+		fmt.Fprintf(cmd.OutOrStdout(), "\n%s needs no generator at all: %s\n", lang, note)
+	}
 	return missing
 }

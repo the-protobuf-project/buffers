@@ -68,6 +68,14 @@ jobs:
       - name: Install capnpc-go
         run: go install capnproto.org/go/capnp/v3/capnpc-go@latest
 
+      # capnpc-rust is the second plugin the example config compiles through, and
+      # the one that proves the emitted schema suits a generator with no
+      # annotation block of its own — unlike Go and Java, Rust needs nothing
+      # written into the .capnp, so a schema that only ever compiled as Go could
+      # be carrying a Go-shaped assumption and nobody would know.
+      - name: Install capnpc-rust
+        run: cargo install capnpc --locked
+
       - name: Download dependencies
         run: go mod download
 
@@ -118,6 +126,7 @@ jobs:
           unzip -q -o /tmp/flatc.zip -d /tmp/flatc
           sudo install -m 0755 /tmp/flatc/flatc /usr/local/bin/flatc
           go install capnproto.org/go/capnp/v3/capnpc-go@latest
+          cargo install capnpc --locked
 
       # examples/descriptors.binpb is committed because the examples import
       # googleapis, which buf resolves from the BSR — the golden tests would

@@ -29,7 +29,12 @@ func annotationImportPath(lang string) (string, bool) {
 	switch lang {
 	case "go":
 		return goCapnpDir()
-	case "java":
+	case "java", "kotlin":
+		// kotlin is not a mistake. Cap'n Proto has no Kotlin generator; Kotlin
+		// consumes capnproto-java's output over JVM interop, so a Kotlin run
+		// compiles the schema *as Java* and needs capnp/java.capnp resolvable
+		// exactly as a Java run does. Omitting it here failed the parse with
+		// "Import failed: /capnp/java.capnp" on a schema that was fine.
 		return javaCapnpDir()
 	}
 	return "", false

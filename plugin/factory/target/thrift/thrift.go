@@ -64,20 +64,37 @@ func (t *Target) Name() string { return "thrift" }
 
 // Languages lists what `thrift --gen` can produce from the emitted IDL.
 //
-// Unlike Cap'n Proto's, every one of these is built into the compiler: Apache
-// Thrift ships all its generators in the one binary, so a language appearing here
-// needs nothing installed beyond `thrift` itself.
+// Unlike Cap'n Proto's, none of these is a separate install: Apache Thrift ships
+// its generators inside the one binary, so having thrift is having all of them.
 //
-// The spellings are the compiler's own — `py`, `rb`, `rs`, `netstd` — rather than
-// the friendlier ones the other targets use, because they are passed through to
-// `--gen` unchanged and a translation table would be one more place for a typo to
-// hide. names.go maps the few obvious aliases.
+// It is a **superset across versions**, not a description of any one thrift, and
+// that is deliberate. The generator set moves between releases: 0.24 generates
+// `mmd` and has no `swift`, while the thrift Ubuntu currently packages generates
+// `swift` and has no `mmd`. Both are supported versions, so any single list is
+// wrong on one of them. This one is the union, and the installed compiler decides
+// what a particular run can actually do — see langs/thriftgen.go, which turns a
+// generator this thrift lacks into a message naming what it does offer.
+//
+// The plugin cannot make that check itself, and should not: it never runs a
+// subprocess, so it validates against this list and leaves the real answer to the
+// CLI. Being permissive is the right failure direction there — refusing a
+// language the local thrift supports would be worse than accepting one it does
+// not and having thrift say so.
+//
+// The spellings are the compiler's own — `py`, `rb`, `rs`, `netstd` — because
+// they are passed to `--gen` unchanged and a translation table would be one more
+// place for a typo to hide. names.go maps the few obvious aliases.
+//
+// Seven of these emit something other than a language: `gv` is GraphViz, `html`,
+// `markdown` and `mmd` are documentation, and `json`, `xml` and `xsd` describe
+// the schema. They are listed because thrift will produce them.
 func (t *Target) Languages() []string {
 	return []string{
 		schemaOnly,
-		"c_glib", "cpp", "d", "dart", "delphi", "erl", "go", "haxe", "hs", "html",
-		"java", "javame", "js", "json", "lua", "netstd", "ocaml", "perl", "php",
-		"py", "rb", "rs", "st", "swift", "xml",
+		"c_glib", "cl", "cpp", "d", "dart", "delphi", "erl", "go", "gv", "haxe",
+		"html", "java", "javame", "js", "json", "kotlin", "lua", "markdown",
+		"mmd", "netstd", "ocaml", "perl", "php", "py", "rb", "rs", "st", "swift",
+		"xml", "xsd",
 	}
 }
 

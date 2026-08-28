@@ -51,7 +51,6 @@ var capnpGenerators = map[string]string{
 	"rust":   "rust",
 	"java":   "java",
 	"kotlin": "java", // capnproto-java output is used from Kotlin via JVM interop
-	"python": "python",
 	"ts":     "ts",
 	"csharp": "csharp",
 }
@@ -62,7 +61,6 @@ var capnpPlugins = map[string]string{
 	"capnpc-go":     "go install capnproto.org/go/capnp/v3/capnpc-go@latest",
 	"capnpc-rust":   "cargo install capnpc",
 	"capnpc-java":   "see https://github.com/capnproto/capnproto-java",
-	"capnpc-python": "pip install pycapnp",
 	"capnpc-ts":     "npm install -g capnpc-ts",
 	"capnpc-csharp": "see https://github.com/c80k/capnproto-dotnet",
 }
@@ -73,6 +71,9 @@ var capnpPlugins = map[string]string{
 // message when that fails is a bare exec error naming a binary the caller has
 // probably never heard of. Catching it here turns that into the install line.
 func checkGenerator(r Request) error {
+	if r.Target == "thrift" {
+		return checkThriftGenerator(r)
+	}
 	if r.Target != "capnp" {
 		return nil
 	}
@@ -153,4 +154,25 @@ func keys(m map[string]string) string {
 	}
 	sort.Strings(out)
 	return strings.Join(out, ", ")
+}
+
+// checkThriftGenerator reports a generator this thrift does not have.
+//
+// Thrift's own message for it is "Unable to get a generator for \"swift\"",
+// which is accurate and leaves the reader to discover the alternatives by
+// running --help. Since the set genuinely differs between releases — the
+// language they asked for may exist in a thrift one version away — the useful
+// message names the version in hand and lists what it does offer.
+func checkThriftGenerator(r Request) error {
+	have := ThriftGenerators()
+	if len(have) == 0 || have[r.Language] {
+		// Nil means the probe could not tell; let thrift answer for itself
+		// rather than refuse a run that would have worked.
+		return nil
+	}
+	return fmt.Errorf("this thrift has no %q generator.\n"+
+		"    Thrift's generator set changes between releases — 0.24 dropped swift and added mmd, "+
+		"for one — so a language missing here may exist in another version.\n"+
+		"    this build offers: %s",
+		r.Language, strings.Join(ThriftGeneratorNames(), ", "))
 }
