@@ -68,14 +68,19 @@ func TestGeneratedThriftGoCompiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The Thrift runtime has to be resolvable, which needs the network. A machine
-	// without it should skip rather than fail: this asserts the generated code,
-	// not the module proxy.
+	// The Thrift runtime has to be resolvable, which needs the network, so an
+	// offline machine skips. Only offline: `go mod tidy` is also what fails when
+	// the generated code imports a package that resolves against nothing — which
+	// is the exact defect this test exists to catch — so skipping on every tidy
+	// error would make it pass precisely when it should not.
 	tidy := exec.Command(goBin, "mod", "tidy")
 	tidy.Dir = outDir
 	tidy.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if out, err := tidy.CombinedOutput(); err != nil {
-		t.Skipf("cannot resolve the thrift runtime (offline?); skipping: %v\n%s", err, firstLines(out, 4))
+		if offline(out) {
+			t.Skipf("cannot reach the module proxy; skipping: %v\n%s", err, firstLines(out, 4))
+		}
+		t.Fatalf("go mod tidy rejected the generated Go: %v\n%s", err, firstLines(out, 12))
 	}
 
 	build := exec.Command(goBin, "build", "./...")
@@ -83,4 +88,29 @@ func TestGeneratedThriftGoCompiles(t *testing.T) {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Errorf("generated Go does not compile: %v\n%s", err, firstLines(out, 12))
 	}
+}
+
+// offline reports whether a `go mod tidy` failure was the network rather than the
+// code.
+//
+// The distinction is the whole point of the check above, and it has to be made on
+// the message because the exit code is 1 either way. An unreachable proxy names a
+// transport failure; unresolvable generated code names the package it could not
+// provide, which is a defect and must fail.
+func offline(out []byte) bool {
+	text := string(out)
+	for _, marker := range []string{
+		"dial tcp",
+		"no such host",
+		"connection refused",
+		"i/o timeout",
+		"TLS handshake timeout",
+		"proxy.golang.org: ",
+		"network is unreachable",
+	} {
+		if strings.Contains(text, marker) {
+			return true
+		}
+	}
+	return false
 }

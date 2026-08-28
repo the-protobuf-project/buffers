@@ -113,3 +113,57 @@ func TestRequiredIsNeverEmitted(t *testing.T) {
 		t.Errorf("a REQUIRED field carries no note explaining the omission: %v", notes)
 	}
 }
+
+// TestWrapperCarriesTheWrappedKindsCaveats is the case that reads as a message
+// and projects as a scalar.
+//
+// google.protobuf.UInt32Value is KindMessage in the IR and unwraps to a bare i32,
+// so anything keyed on Field.Kind misses it — and a boxed uint32 would land on a
+// signed i32 with no note and no diagnostic while a bare one got both. The box is
+// presence, not a change of type.
+func TestWrapperCarriesTheWrappedKindsCaveats(t *testing.T) {
+	r := &run{}
+	boxed := &buffers.Field{
+		Node:      "p.M.f",
+		Kind:      buffers.KindMessage,
+		Message:   "google.protobuf.UInt32Value",
+		WellKnown: buffers.WKUint32Value,
+	}
+
+	if got := effectiveKind(boxed); got != buffers.KindUint32 {
+		t.Fatalf("effectiveKind = %s, want uint32", got)
+	}
+	if d := r.unsignedDiag(boxed); d == nil {
+		t.Error("a boxed uint32 produced no sign-reinterpretation diagnostic")
+	}
+	notes := r.notes(boxed)
+	if len(notes) == 0 || !strings.Contains(strings.Join(notes, " "), "unsigned") {
+		t.Errorf("a boxed uint32 carries no caveat in its doc: %v", notes)
+	}
+
+	// A boxed float keeps the widening note, and is not diagnosed — widening is
+	// lossless in value.
+	f := &buffers.Field{Node: "p.M.g", Kind: buffers.KindMessage, WellKnown: buffers.WKFloatValue}
+	if d := r.unsignedDiag(f); d != nil {
+		t.Errorf("a boxed float was diagnosed as unsigned: %v", d)
+	}
+	if notes := r.notes(f); len(notes) == 0 || !strings.Contains(notes[0], "32-bit floating point") {
+		t.Errorf("a boxed float lost its widening note: %v", notes)
+	}
+}
+
+// TestUnsignedNoteNamesTheActualKind guards a note that used to say "uint32" for
+// a fixed32 field, which is a different proto type with the same projection.
+func TestUnsignedNoteNamesTheActualKind(t *testing.T) {
+	for kind, want := range map[buffers.Kind]string{
+		buffers.KindUint32:  "uint32",
+		buffers.KindFixed32: "fixed32",
+		buffers.KindUint64:  "uint64",
+		buffers.KindFixed64: "fixed64",
+	} {
+		_, note, _ := scalar(kind)
+		if !strings.Contains(note, "`"+want+"`") {
+			t.Errorf("scalar(%s) note does not name %s: %s", kind, want, note)
+		}
+	}
+}

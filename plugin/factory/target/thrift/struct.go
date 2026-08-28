@@ -77,6 +77,9 @@ func (r *run) structFields(b *emit.Buf, f *buffers.File, m *buffers.Message) {
 
 // field renders one ordinary field.
 func (r *run) field(b *emit.Buf, f *buffers.File, fl *buffers.Field) {
+	if !r.checkFieldID(fl.Node, "field", fl.Number) {
+		return
+	}
 	typ, diag := r.fieldType(fl, f)
 	r.collect(diag)
 	if typ == "" {

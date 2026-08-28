@@ -38,13 +38,15 @@ type run struct {
 
 // file renders one .thrift, or nil when the file has nothing this target emits.
 //
-// The declaration order is not cosmetic. Thrift's parser resolves a type name at
-// the point it is used, so a struct naming a type declared later in the same file
-// is a compile error rather than a forward reference. Enums first, then the
-// structs in dependency order, then the services — see order.go for what happens
-// when the graph has a cycle.
+// Declarations come out in the order the proto declares them. That is worth
+// stating because the obvious worry — that Thrift resolves a type name where it
+// is used, so a struct naming something declared further down would fail — is
+// not true of the compiler: forward references and mutually recursive structs
+// both compile, verified against thrift's cpp, go, java, py, rb and rs backends
+// by TestThriftAcceptsTheSchema. So there is no ordering to derive, and imposing
+// one would only reorder the author's file for no reason.
 func (r *run) file(f *buffers.File) ([]byte, error) {
-	msgs := orderedMessages(r.schema, f)
+	msgs := flattenMessages(f)
 	enums := flattenEnums(f)
 	svcs := emittableServices(f)
 	if len(msgs) == 0 && len(enums) == 0 && len(svcs) == 0 {
@@ -53,7 +55,7 @@ func (r *run) file(f *buffers.File) ([]byte, error) {
 
 	r.fileNeeds = map[preludeType]bool{}
 	r.includes = r.assignIncludes(f)
-	r.reportCycles(f)
+	r.reportCollisions(f)
 
 	var b emit.Buf
 	for _, e := range enums {
@@ -63,8 +65,8 @@ func (r *run) file(f *buffers.File) ([]byte, error) {
 	for _, m := range msgs {
 		// A oneof becomes a named union type, which Thrift declares at file scope
 		// rather than inside the struct. It is emitted immediately before its
-		// owner so that every arm type — all of which are the owner's own
-		// dependencies — is already in scope.
+		// owner because that is where a reader looks for it, not because Thrift
+		// requires it.
 		for _, one := range liveOneofs(m) {
 			b.Line("")
 			r.union(&b, f, m, one)
@@ -150,10 +152,20 @@ func (r *run) doc(b *emit.Buf, prose string, notes ...string) {
 			b.Line(" *")
 			continue
 		}
-		b.Linef(" * %s", line)
+		b.Linef(" * %s", closeSafe(line))
 	}
 	b.Line(" */")
 }
+
+// closeSafe defuses a `*/` inside prose, which would otherwise end the doc
+// comment early and leave the rest of the sentence as stray tokens.
+//
+// It is a real input, not a theoretical one: a proto comment quoting a C or Java
+// block comment carries the sequence verbatim, and the resulting .thrift fails to
+// parse somewhere after the comment rather than in it. A space is inserted rather
+// than the text escaped because Thrift's lexer has no escape inside a comment —
+// there is nothing to escape it with.
+func closeSafe(s string) string { return strings.ReplaceAll(s, "*/", "* /") }
 
 // docWidth is the column a note is wrapped at, chosen so that ` * `, the text and
 // a struct's two-space indent land under eighty.

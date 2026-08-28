@@ -9,10 +9,13 @@ package registry_test
 // every ordinal, identifier and type ID. A schema can be byte-stable and still
 // not compile, and without this the first person to find out would be a user.
 //
-// The Thrift check earns its place twice over, because that target has a
-// constraint the others do not: Thrift resolves a type name where it is used, so
-// a struct declared before something it names fails here and nowhere else. No
-// golden comparison can catch that; only the compiler can.
+// The Thrift check is also what settled a question the emitted schema depends on.
+// Thrift is widely described as resolving a type name where it is used, which
+// would make declaration order load-bearing and forward references illegal. Its
+// compiler does no such thing — forward references and mutually recursive structs
+// both compile, on every backend — so this target emits declarations in the
+// order the proto declares them and derives no ordering at all. That is a claim
+// about someone else's compiler, so it is checked against the compiler.
 //
 // Each skips when its toolchain is absent, because a machine without flatc is a
 // normal machine and this repository's correctness does not depend on what

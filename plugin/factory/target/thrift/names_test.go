@@ -4,8 +4,16 @@ import "testing"
 
 // TestIdentLeavesProtoNamesAlone is the property this target is built on: where a
 // grammar does not force a rename, the proto name is the mapping.
+//
+// The last three are the ones a case-insensitive check would have broken. thrift
+// claims `delete`, `list` and `union` in lowercase only — `struct list` is an
+// error and `struct List` is not — so a method, a message and an enum value
+// spelled this way must pass through untouched.
 func TestIdentLeavesProtoNamesAlone(t *testing.T) {
-	for _, name := range []string{"display_name", "SENSOR_KIND_LIDAR", "GetSensor", "rate_hz", "_value"} {
+	for _, name := range []string{
+		"display_name", "ORDER_STATE_SHIPPED", "GetOrder", "total_cents", "_value",
+		"Delete", "List", "UNION",
+	} {
 		if got := ident(name); got != name {
 			t.Errorf("ident(%q) = %q, want it unchanged", name, got)
 		}
@@ -23,8 +31,22 @@ func TestIdentSuffixesReservedWords(t *testing.T) {
 		"binary": "binary_",
 		"from":   "from_",
 		"class":  "class_",
-		"Struct": "Struct_", // the check is case-insensitive; thrift's is too
 		"":       "field",
+
+		// The PHP block-structure words and the compiler's magic constants,
+		// both of which thrift reserves and neither of which is a Thrift
+		// keyword anyone would think to avoid in a .proto.
+		"endif":      "endif_",
+		"endwhile":   "endwhile_",
+		"endforeach": "endforeach_",
+		"enddeclare": "enddeclare_",
+		"__FILE__":   "__FILE___",
+
+		// BEGIN and END are Perl and Ruby block keywords, which thrift reserves
+		// in upper case — so unlike the lowercase entries these match a
+		// SCREAMING_SNAKE enum value exactly.
+		"BEGIN": "BEGIN_",
+		"END":   "END_",
 	}
 	for in, want := range cases {
 		if got := ident(in); got != want {

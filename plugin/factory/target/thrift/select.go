@@ -5,7 +5,6 @@ package thrift
 // nesting, and the small helpers every renderer here shares.
 
 import (
-	"fmt"
 	"path"
 	"sort"
 	"strings"
@@ -119,24 +118,6 @@ func (r *run) ownerOf(fullName string) *buffers.File {
 func (r *run) collect(d *buffers.Diagnostic) {
 	if d != nil {
 		r.diags = append(r.diags, *d)
-	}
-}
-
-// reportCycles reports the mutually referencing messages Thrift cannot order.
-func (r *run) reportCycles(f *buffers.File) {
-	for _, cycle := range cycles(f) {
-		names := make([]string, len(cycle))
-		for i, m := range cycle {
-			names[i] = m.Name
-		}
-		r.collect(&buffers.Diagnostic{
-			Rule: buffers.RuleTarget,
-			Node: cycle[0].Node,
-			Message: fmt.Sprintf("%s reference each other, and Thrift resolves a type name where it is "+
-				"used; whichever is declared first names one that does not exist yet", strings.Join(names, " and ")),
-			Hint: "split the cycle across two .proto files — an include is fully parsed before the file " +
-				"that includes it, so the ordering rule does not apply across one",
-		})
 	}
 }
 

@@ -32,15 +32,30 @@ func scalar(k buffers.Kind) (spelling, note string, ok bool) {
 	case buffers.KindInt64, buffers.KindSint64, buffers.KindSfixed64:
 		return "i64", "", true
 	case buffers.KindUint32, buffers.KindFixed32:
-		return "i32", "proto `uint32`. Thrift has no unsigned types; the 32 bits round-trip, but a " +
-			"value above 2147483647 reads back negative.", true
+		return "i32", fmt.Sprintf("proto `%s`. Thrift has no unsigned types; the 32 bits round-trip, "+
+			"but a value above 2147483647 reads back negative.", k), true
 	case buffers.KindUint64, buffers.KindFixed64:
-		return "i64", "proto `uint64`. Thrift has no unsigned types; the 64 bits round-trip, but a " +
-			"value above 9223372036854775807 reads back negative.", true
+		return "i64", fmt.Sprintf("proto `%s`. Thrift has no unsigned types; the 64 bits round-trip, "+
+			"but a value above 9223372036854775807 reads back negative.", k), true
 	case buffers.KindBool:
 		return "bool", "", true
 	}
 	return "", "", false
+}
+
+// effectiveKind is the proto kind a field is actually projected as.
+//
+// It differs from Field.Kind for exactly one input, and that input is why this
+// exists: a google.protobuf.UInt32Value is a *message* as far as the IR is
+// concerned, and qualify.go unwraps it to a bare i32. Keyed on Field.Kind, every
+// caveat below would then miss it — a boxed uint32 would land on i32 with no
+// note and no diagnostic, while a bare one got both. The box is presence, not a
+// change of type.
+func effectiveKind(f *buffers.Field) buffers.Kind {
+	if wrapped, ok := f.WellKnown.Wrapper(); ok {
+		return wrapped
+	}
+	return f.Kind
 }
 
 // unsigned reports whether a kind loses its sign interpretation in Thrift, which
@@ -101,14 +116,15 @@ func (r *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.D
 // sides: the producer writes a number Thrift will hand back as a different one,
 // and no generated accessor anywhere in the chain says so.
 func (r *run) unsignedDiag(f *buffers.Field) *buffers.Diagnostic {
-	if !unsigned(f.Kind) {
+	kind := effectiveKind(f)
+	if !unsigned(kind) {
 		return nil
 	}
 	return &buffers.Diagnostic{
 		Rule: buffers.RuleTarget,
 		Node: f.Node,
 		Message: fmt.Sprintf("%s has no Thrift equivalent; it is emitted as %s, which reinterprets "+
-			"every value above the signed maximum as negative", f.Kind, signedOf(f.Kind)),
+			"every value above the signed maximum as negative", kind, signedOf(kind)),
 		Hint: "use the signed proto type if the values fit it, so the reinterpretation is at least " +
 			"declared on both sides",
 	}
@@ -128,7 +144,7 @@ func signedOf(k buffers.Kind) string {
 // width caveat, and the AIP behavior Thrift declines to enforce.
 func (r *run) notes(f *buffers.Field) []string {
 	var out []string
-	if _, note, ok := scalar(f.Kind); ok && note != "" {
+	if _, note, ok := scalar(effectiveKind(f)); ok && note != "" {
 		out = append(out, note)
 	}
 	if f.Required() {

@@ -58,7 +58,10 @@ Thrift, ROS 2 and Square Wire schema, and drives the toolchains that compile it.
 Every field is assigned a target slot that does not move between runs, recorded
 in buffers.lock. That file is the point of the tool: a proto field number and a
 Cap'n Proto ordinal are different numbering schemes, and a slot that silently
-shifts when someone deletes a field is a wire break that nothing else reports.`,
+shifts when someone deletes a field is a wire break that nothing else reports.
+
+Thrift is the exception, and needs no ledger: its field ids are proto field
+numbers, so nothing can shift.`,
 		SilenceUsage: true,
 		// A failure inside a command is not a usage error, and printing the whole
 		// help text after a schema diagnostic buries it.

@@ -12,9 +12,15 @@ package thrift
 // Compare Cap'n Proto, which rewrites every member because a capital initial is a
 // parse error there.
 //
-// Two things do force a change. The Thrift compiler rejects a name that is one of
-// its own keywords or one of the host-language words it reserves, and Thrift has
-// no nested scope, so a nested proto type has to fold its path into its name.
+// Two things do force a change. Thrift claims a set of words, and Thrift has no
+// nested scope — so a nested proto type has to fold its path into its name.
+//
+// The word list is applied case-sensitively, because that is how thrift applies
+// it. Verified against the compiler rather than assumed: `struct list` is an
+// error and `struct List` is fine, and the same holds for every keyword. Folding
+// case would have renamed an enum value called `END` and a method called
+// `Delete`, both of which thrift accepts and neither of which anyone asked to
+// have renamed.
 
 import (
 	"strings"
@@ -22,13 +28,22 @@ import (
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/names"
 )
 
-// reserved are the words the Thrift compiler refuses as an identifier: its own
-// IDL keywords, its builtin type names, and the union of the host-language
-// keywords it reserves so that generated code compiles everywhere.
+// reserved are the words Thrift claims: its own IDL keywords, its builtin type
+// names, and the host-language words it reserves so that generated code compiles
+// everywhere.
 //
-// The host-language half is the surprising one. `from` is not a Thrift keyword,
-// but a field named `from` breaks the generated Python, so thrift rejects it up
-// front — which means a .proto with a `from` field fails here and nowhere else.
+// Where they bite differs by position, and current thrift is laxer than its
+// documentation. A *type* name that is a keyword is a hard parse error —
+// `struct list` does not compile. A field, enum value or method name that is one
+// parses fine in 0.24.
+//
+// The rename is applied in both positions anyway, and the second is the case
+// worth justifying: `from` is not a Thrift keyword, but a field named `from`
+// produces Python that will not parse, and `class` produces Java that will not
+// compile. buffers cannot know which backends a schema will later be run through,
+// so it emits a name that works in all of them — the same reasoning that makes
+// the FlatBuffers target care whether generated C++ actually builds rather than
+// only whether flatc exited zero.
 var reserved = map[string]bool{
 	// IDL keywords and builtin types.
 	"namespace": true, "include": true, "cpp_include": true, "typedef": true,
@@ -39,13 +54,20 @@ var reserved = map[string]bool{
 	"i16": true, "i32": true, "i64": true, "double": true, "string": true,
 	"binary": true, "map": true, "list": true, "set": true,
 
+	// The compiler's magic-constant names, which are reserved outright.
+	"BEGIN": true, "END": true, "__CLASS__": true, "__DIR__": true,
+	"__FILE__": true, "__FUNCTION__": true, "__LINE__": true,
+	"__METHOD__": true, "__NAMESPACE__": true,
+
 	// Host-language words thrift reserves so the generated code compiles.
 	"abstract": true, "alias": true, "and": true, "args": true, "as": true,
 	"assert": true, "begin": true, "break": true, "case": true, "catch": true,
 	"class": true, "clone": true, "continue": true, "declare": true,
 	"def": true, "default": true, "del": true, "delete": true, "do": true,
 	"dynamic": true, "elif": true, "else": true, "elseif": true, "elsif": true,
-	"end": true, "ensure": true, "except": true, "exec": true, "false": true,
+	"end": true, "enddeclare": true, "endfor": true, "endforeach": true,
+	"endif": true, "endswitch": true, "endwhile": true, "ensure": true,
+	"except": true, "exec": true, "false": true,
 	"finally": true, "float": true, "for": true, "foreach": true, "from": true,
 	"function": true, "global": true, "goto": true, "if": true,
 	"implements": true, "import": true, "in": true, "inline": true,
@@ -73,7 +95,7 @@ func ident(protoName string) string {
 	if protoName == "" {
 		return "field"
 	}
-	if reserved[strings.ToLower(protoName)] {
+	if reserved[protoName] {
 		return protoName + "_"
 	}
 	return protoName
@@ -85,7 +107,7 @@ func typeName(fullName, pkg string) string {
 	if out == "" {
 		return "Type"
 	}
-	if reserved[strings.ToLower(out)] {
+	if reserved[out] {
 		return out + "_"
 	}
 	return out
@@ -101,7 +123,7 @@ func typeName(fullName, pkg string) string {
 // having two names across two targets.
 func unionName(owner, oneofName string) string {
 	out := owner + names.Pascal(oneofName)
-	if reserved[strings.ToLower(out)] {
+	if reserved[out] {
 		return out + "_"
 	}
 	return out

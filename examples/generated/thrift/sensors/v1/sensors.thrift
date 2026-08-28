@@ -89,60 +89,6 @@ struct Sensor {
 }
 
 /**
- * PointCloud is an unstructured set of returns.
- */
-struct PointCloud {
-  /**
-   * points are the returns in the sensor frame.
-   *
-   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
-   * later be relaxed; enforcement stays with the service.
-   */
-  1: list<geometry.Vector3> points
-  /**
-   * intensities are per-point return strengths, parallel to points.
-   *
-   * proto `float`. Thrift has no 32-bit floating point type, so this widens to
-   * a double: the value survives, the message grows four bytes.
-   */
-  2: list<double> intensities
-}
-
-/**
- * ImageFrame is one encoded image.
- */
-struct ImageFrame {
-  /**
-   * width is the frame width in pixels.
-   *
-   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
-   * later be relaxed; enforcement stays with the service.
-   */
-  1: i32 width
-  /**
-   * height is the frame height in pixels.
-   *
-   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
-   * later be relaxed; enforcement stays with the service.
-   */
-  2: i32 height
-  /**
-   * encoding names the pixel format, for example "rgb8".
-   *
-   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
-   * later be relaxed; enforcement stays with the service.
-   */
-  3: string encoding
-  /**
-   * data is the encoded payload.
-   *
-   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
-   * later be relaxed; enforcement stays with the service.
-   */
-  4: binary data
-}
-
-/**
  * payload is the sample itself, whose shape depends on the sensor's modality.
  *
  * The arms of Reading.payload. Exactly one member is set; the ids are the
@@ -200,4 +146,58 @@ struct Reading {
    * union at file scope rather than inside the struct.
    */
   4: optional ReadingPayload payload
+}
+
+/**
+ * PointCloud is an unstructured set of returns.
+ */
+struct PointCloud {
+  /**
+   * points are the returns in the sensor frame.
+   *
+   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
+   * later be relaxed; enforcement stays with the service.
+   */
+  1: list<geometry.Vector3> points
+  /**
+   * intensities are per-point return strengths, parallel to points.
+   *
+   * proto `float`. Thrift has no 32-bit floating point type, so this widens to
+   * a double: the value survives, the message grows four bytes.
+   */
+  2: list<double> intensities
+}
+
+/**
+ * ImageFrame is one encoded image.
+ */
+struct ImageFrame {
+  /**
+   * width is the frame width in pixels.
+   *
+   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
+   * later be relaxed; enforcement stays with the service.
+   */
+  1: i32 width
+  /**
+   * height is the frame height in pixels.
+   *
+   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
+   * later be relaxed; enforcement stays with the service.
+   */
+  2: i32 height
+  /**
+   * encoding names the pixel format, for example "rgb8".
+   *
+   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
+   * later be relaxed; enforcement stays with the service.
+   */
+  3: string encoding
+  /**
+   * data is the encoded payload.
+   *
+   * REQUIRED (AIP-203). Not emitted as Thrift `required`, which can never
+   * later be relaxed; enforcement stays with the service.
+   */
+  4: binary data
 }

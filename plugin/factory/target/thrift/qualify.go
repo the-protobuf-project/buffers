@@ -20,7 +20,9 @@ func (r *run) messageType(f *buffers.Field, from *buffers.File) (string, *buffer
 		// with the `optional` modifier struct.go already applies to it. Emitting a
 		// one-field struct instead would keep the box and lose the point.
 		if got, _, ok := scalar(wrapped); ok {
-			return got, nil
+			// The unwrapped kind's caveats travel with it: a boxed uint32 is
+			// still a uint32 landing on a signed i32.
+			return got, r.unsignedDiag(f)
 		}
 		switch wrapped {
 		case buffers.KindString:

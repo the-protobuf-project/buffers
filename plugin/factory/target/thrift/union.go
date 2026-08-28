@@ -33,6 +33,9 @@ func (r *run) union(b *emit.Buf, f *buffers.File, m *buffers.Message, one *buffe
 
 	b.Block(fmt.Sprintf("union %s {", r.unionTypeName(m, one)), "}", func() {
 		for _, arm := range arms {
+			if !r.checkFieldID(arm.Node, "union arm", arm.Number) {
+				continue
+			}
 			typ, diag := r.fieldType(arm, f)
 			r.collect(diag)
 			if typ == "" {
@@ -48,14 +51,24 @@ func (r *run) union(b *emit.Buf, f *buffers.File, m *buffers.Message, one *buffe
 
 // unionField renders the parent struct's field holding the union.
 func (r *run) unionField(b *emit.Buf, m *buffers.Message, one *buffers.Oneof) {
-	arms := liveArms(one)
-	if len(arms) == 0 {
+	// The lowest arm id that Thrift can actually hold. Re-checked with the silent
+	// predicate rather than the diagnosing one: union() has already reported any
+	// arm that does not fit, and reporting it twice would say the same thing about
+	// the same field in two places.
+	var id int32
+	for _, arm := range liveArms(one) {
+		if fitsFieldID(arm.Number) {
+			id = arm.Number
+			break
+		}
+	}
+	if id == 0 {
 		return
 	}
 
 	r.doc(b, one.Doc, fmt.Sprintf("A proto oneof. The arms live in %s, because Thrift declares a "+
 		"union at file scope rather than inside the struct.", r.unionTypeName(m, one)))
-	b.Linef("%d: optional %s %s", arms[0].Number, r.unionTypeName(m, one), ident(one.Name))
+	b.Linef("%d: optional %s %s", id, r.unionTypeName(m, one), ident(one.Name))
 }
 
 // unionTypeName is the generated union's type name, derived from the owning

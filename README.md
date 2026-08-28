@@ -35,17 +35,28 @@
 
 ## Why
 
-A robotics or trading stack rarely gets to pick one serialization format. gRPC
-carries the control plane, a shared-memory bus carries the hot path, ROS carries
-whatever the sensor vendor shipped, and the mobile client wants Kotlin. Each has
-its own IDL, and the usual answer is to write the same types five times and hope
-review catches the drift.
+**Most systems of any size end up speaking more than one serialization format,
+and almost none of them chose to.** A service boundary is gRPC because that is
+what the platform gave you. A hot path is FlatBuffers or Cap'n Proto because
+parsing showed up in a profile and zero-copy was the fix. An older internal
+service is Thrift because it was written before protobuf won. A mobile client
+wants a small JVM runtime. A robot or a vehicle carries ROS because that is what
+the hardware vendor shipped.
+
+Each of those has its own IDL. The usual answer is to write the same types five
+times and hope review catches the drift — and review does not catch it, because
+the drift that matters is not a renamed field, it is a field that quietly moved
+to a different slot.
 
 buffers takes the protobuf definition as the source of truth and derives the rest.
 The AIP annotations that are already there — `google.api.resource`,
 `field_behavior`, `resource_reference`, the AIP-131–136 method shapes — carry
 enough information to do it without a second vocabulary describing the same
 things again.
+
+Nothing here is domain-specific. It is a schema-to-schema compiler: whatever your
+`.proto` describes — orders, telemetry, ledger entries, documents — is what comes
+out the other side. ROS is one of five backends, not the point of the tool.
 
 ```mermaid
 flowchart LR
@@ -56,9 +67,9 @@ flowchart LR
     IR --> TH[".thrift + services"]
     IR --> RS[".msg / .srv"]
     IR --> WR["wire.gradle.kts"]
-    FB --> FC["flatc → 14 languages"]
-    CP --> CC["capnp → 6 languages"]
-    TH --> TC["thrift → 20 languages"]
+    FB --> FC["flatc → 15 backends"]
+    CP --> CC["capnp → 8 backends"]
+    TH --> TC["thrift → 25 backends"]
 ```
 
 ## The problem it actually solves
@@ -72,18 +83,18 @@ by a union. So every target needs a mapping — and a mapping recomputed from
 scratch on each run silently changes when somebody deletes a field:
 
 ```proto
-message Sensor {
-  string name     = 1;   // ordinal 0
-  SensorKind kind = 2;   // ordinal 1
-  string firmware = 5;   // ordinal 4   ← delete this
-  float rate_hz   = 7;   // ordinal 5
+message Order {
+  string id          = 1;   // ordinal 0
+  OrderState state   = 2;   // ordinal 1
+  string coupon_code = 5;   // ordinal 4   ← delete this
+  double total       = 7;   // ordinal 5
 }
 ```
 
-Remove `firmware` without reserving it and `rate_hz` slides from ordinal 5 to 4.
-Nothing reports it. Not protoc, not capnp, not flatc, not the consumer — which
-was compiled against the old schema and now reads a `float` out of the slot that
-used to hold a string.
+Remove `coupon_code` without reserving it and `total` slides from ordinal 5 to 4.
+Nothing reports it. Not protoc, not capnp, not flatc, not the consumer — which was
+compiled against the old schema and now reads a `double` out of the slot that used
+to hold a string.
 
 buffers makes that visible three ways:
 
@@ -95,7 +106,7 @@ buffers makes that visible three ways:
 
 ```console
 $ buffers verify
-error: ordinal: sensors.v1.Sensor.rate_hz: buffers.lock records ordinal 6 for
+error: ordinal: billing.v1.Order.total: buffers.lock records ordinal 6 for
        field number 7, but this build derives 5; the ledger wins, because a
        consumer compiled against 6 is still reading it
     fix: a field was probably removed without a `reserved` declaration — add it,
@@ -109,9 +120,10 @@ go install github.com/the-protobuf-project/buffers/plugin/cmd/protoc-gen-buffers
 go install github.com/the-protobuf-project/buffers/plugin/cmd/buffers@latest
 ```
 
-Compiling the emitted schema into a language additionally needs that format's
-toolchain — `brew install flatbuffers capnp`. `buffers targets` reports what is
-installed.
+Emitting schema needs nothing else. Compiling that schema *into a language*
+additionally needs the format's own toolchain — flatc, capnp or thrift — and
+`buffers doctor` reports which of them you have and gives one install line for the
+package manager you actually use.
 
 ## Quick start
 
@@ -178,6 +190,25 @@ was verified by running `flatc` against this repository's own emitted schema;
 every entry in the Thrift row is a generator built into the one `thrift` binary,
 so unlike Cap'n Proto there is nothing extra to install per language.
 
+How far one `.proto` reaches, by backend count:
+
+```mermaid
+sankey-beta
+
+protobuf,thrift,25
+protobuf,flatbuffers,15
+protobuf,capnp,8
+protobuf,ros,3
+protobuf,wire,3
+```
+
+The widths are generator backends, as `buffers targets` counts them, not a quality
+ranking. Three of Thrift's twenty-five emit HTML, JSON and XML rather than a
+language; Cap'n Proto's eight each need their own `capnpc-` plugin installed,
+while Thrift's and FlatBuffers' are built into the one binary. Reach is one axis —
+what each format can actually *hold* is the next section, and it runs the other
+way.
+
 Cap'n Proto ships **only** its C++ generator; every other language is a separate
 `capnpc-<lang>` binary you install. `buffers` checks for it before invoking capnp
 and reports the install line rather than letting capnp fail with a bare exec
@@ -224,12 +255,13 @@ Generated language code is laid out the way protoc lays out its own: paths
 mirroring the proto source tree, and packages taken from the proto's own
 `java_package` / `go_package` rather than the bare proto package.
 
-```
-proto/sensors/v1/sensors.proto
-  ->  cpp/sensors/v1/sensors_generated.h        namespace sensors::v1
-      go/sensorsv1/Sensor.go                    package sensorsv1
-      java/com/sensors/v1/Sensor.java           package com.sensors.v1
-      python/sensors/v1/Sensor.py
+```mermaid
+flowchart LR
+    S["proto/billing/v1/billing.proto<br/>package billing.v1"]
+    S --> C["cpp/billing/v1/billing_generated.h<br/>namespace billing::v1"]
+    S --> G["go/billingv1/order.go<br/>package billingv1"]
+    S --> J["java/com/billing/v1/Order.java<br/>package com.billing.v1"]
+    S --> Y["python/billing/v1/Order.py"]
 ```
 
 That takes per-directory invocation, because flatc is really two behaviours: Go,
@@ -242,26 +274,26 @@ result — a tree that looks right but does not build is the failure mode here, 
 there is a test that compiles it.
 
 **Go file names are snake_case.** flatc writes one file per generated *type*, in
-PascalCase — `Sensor.go`, `CreateSensorRequest.go` — where Go uses lowercase
-snake_case. `buffers` renames them afterwards, so you get `sensor.go` and
-`create_sensor_request.go`.
+PascalCase — `Order.go`, `CreateOrderRequest.go` — where Go uses lowercase
+snake_case. `buffers` renames them afterwards, so you get `order.go` and
+`create_order_request.go`.
 
 The rename is safe because **a Go file name means nothing to the compiler**: the
 package is declared inside the file and the type names are untouched, so
-`Sensor.go` and `sensor.go` build identically. That is a Go-specific property, and
-the rename is applied to Go alone — `Sensor.java` *must* contain `class Sensor`.
+`Order.go` and `order.go` build identically. That is a Go-specific property, and
+the rename is applied to Go alone — `Order.java` *must* contain `class Order`.
 
 The one thing a Go file name does mean is a build constraint, which makes the
 naive version of this actively dangerous:
 
 | type | naive rename | effect |
 |---|---|---|
-| `SensorTest` | `sensor_test.go` | becomes a test file, excluded from the package |
-| `SensorLinux` | `sensor_linux.go` | compiled only on Linux |
-| `SensorAmd64` | `sensor_amd64.go` | compiled only on amd64 |
+| `OrderTest` | `order_test.go` | becomes a test file, excluded from the package |
+| `OrderLinux` | `order_linux.go` | compiled only on Linux |
+| `OrderAmd64` | `order_amd64.go` | compiled only on amd64 |
 
 Each silently drops a type, with no error until something references it. A guard
-word is appended in those cases (`sensor_test_fbs.go`), using protokit's
+word is appended in those cases (`order_test_fbs.go`), using protokit's
 `naming.GoFileName`, which knows the constrained suffixes.
 
 flatc's own `--gen-onefile` would give idiomatic names directly and is not used:
@@ -280,13 +312,13 @@ Two limits worth knowing, both flatc's:
   `go_module` per generate entry — each target's Go output lives in its own
   directory, so one value cannot describe both.
 - **`java_package` must end with the proto package.** flatc offers a prefix
-  prepended to the namespace, not a package to set, so `com.sensors.v1` over
-  `sensors.v1` works and `com.example.api` cannot be expressed. That is warned
+  prepended to the namespace, not a package to set, so `com.billing.v1` over
+  `billing.v1` works and `com.example.api` cannot be expressed. That is warned
   about too.
 
 > **Why not emit into the same directory as your protobuf code?** Because they
-> collide. `protoc-gen-go` and `flatc` both declare `type Sensor struct` in
-> package `sensorsv1`, so the two cannot share a Go package — nor a Java package,
+> collide. `protoc-gen-go` and `flatc` both declare `type Order struct` in
+> package `billingv1`, so the two cannot share a Go package — nor a Java package,
 > nor a C++ namespace. Mirroring the tree gets the ergonomics without the
 > collision: the output sits beside your protobuf output, one directory per
 > encoding.
@@ -324,7 +356,8 @@ number — so this target emits the proto number verbatim and **`buffers.lock` h
 no authority over its output**. Deleting a field without reserving it cannot shift
 anything here, because nothing slides down to fill the gap. Identifiers are left
 alone for the same reason Cap'n Proto's are rewritten: Thrift's grammar demands no
-case, so `display_name` stays `display_name` and `SENSOR_KIND_LIDAR` stays itself.
+case, so `display_name` stays `display_name` and `ORDER_STATE_SHIPPED` stays
+itself.
 
 It also has the only real `map<K,V>` of the five, so a proto map stays a map
 rather than decaying into a list of pairs, and a oneof becomes a real `union`.
@@ -332,11 +365,19 @@ rather than decaying into a list of pairs, and a oneof becomes a real `union`.
 What it gives up: no unsigned integers (a `uint64` keeps its 64 bits and reads
 back negative above the signed maximum — reported per field), no 32-bit float, no
 streaming, and no nesting. Two further things are decided rather than derived.
-`required` is **never** emitted, because Thrift's `required` is a permanent wire
-contract that can never be relaxed while AIP-203 REQUIRED is an API rule services
-relax routinely. And declarations are emitted in dependency order, because Thrift
-resolves a type name where it is used — a struct declared before something it
-names is a compile error there and legal everywhere else.
+
+**`required` is never emitted.** Thrift's `required` is a permanent wire contract
+— a reader rejects any message lacking the field, forever — while AIP-203
+REQUIRED is an API rule services relax routinely. Rendering one as the other would
+freeze a decision the proto did not make, in a format where it cannot be unfrozen.
+
+**A field number above 32767 is dropped, loudly.** This is the one place the
+identity mapping breaks: a Thrift field id is a signed 16-bit integer, and a proto
+field number runs to 536870911. Thrift does not refuse the overflow — it warns,
+exits zero, and truncates the id into sixteen bits, which silently puts two fields
+in one slot. buffers omits the field and reports it instead, because a schema
+missing a field it names is recoverable and a schema writing two fields to one id
+is not.
 
 **ROS 2.** The lossiest, and the target that says so loudest. No enums (they
 become constant-carrying messages), no unions (a oneof becomes a discriminant
@@ -361,29 +402,28 @@ is not a policy, it is the mapping.
 import "buffers/v1/annotations.proto";
 
 option (buffers.v1.file) = {
-  namespace: "sensors.v1"
-  ros_package: "sensors_msgs"
-  file_id: "SNSR"          // FlatBuffers file_identifier
+  namespace: "billing.v1"
+  jvm_package: "com.billing.v1"
+  file_id: "BILL"          // FlatBuffers file_identifier
 };
 
-message Vector3 {
+message LatLng {
   option (buffers.v1.message) = {layout: LAYOUT_STRUCT};  // packed, not evolvable
 
-  double x = 1;
-  double y = 2;
-  double z = 3;
+  double latitude = 1;
+  double longitude = 2;
 }
 
-enum SensorKind {
+enum OrderState {
   option (buffers.v1.enumeration) = {underlying: INT_WIDTH_UINT8};  // one byte, not four
-  SENSOR_KIND_UNSPECIFIED = 0;
-  SENSOR_KIND_LIDAR = 1;
+  ORDER_STATE_UNSPECIFIED = 0;
+  ORDER_STATE_SHIPPED = 1;
 }
 
-message Sensor {
+message Order {
   reserved 6;  // holds the slot of a removed field — see below
 
-  string firmware = 5 [(buffers.v1.field) = {max_len: 24}];  // ROS: string<=24
+  string currency_code = 5 [(buffers.v1.field) = {max_len: 3}];  // ISO 4217; ROS: string<=3
 }
 ```
 
@@ -402,7 +442,7 @@ message Sensor {
 | `transport`, `topic` | method | ROS service vs topic vs action |
 | `skip`, `targets` | most | exclude, or restrict to named targets |
 
-`LAYOUT_STRUCT` is **opt-in, never inferred.** A message of three doubles is
+`LAYOUT_STRUCT` is **opt-in, never inferred.** A message of two doubles is
 struct-eligible, and adding a string to it is an ordinary wire-compatible proto
 change — but it would flip the message from packed to vtable-backed, which *is*
 breaking in FlatBuffers. Packing trades evolution for density, so it is opted into
@@ -419,14 +459,14 @@ fresh ordinal — inventing a breaking change out of a compatible one.
 
 ```yaml
 messages:
-  - message: sensors.v1.Sensor
+  - message: billing.v1.Order
     fields:
       - number: 1
         ordinal: 0
-        name: name
+        name: id
       - number: 7
         ordinal: 6
-        name: rate_hz    # 5 is held by `reserved 6;`
+        name: total      # 5 is held by `reserved 6;`
 ```
 
 Commit it. Run `buffers verify` in CI. `.gitattributes` marks it `-merge`, because
@@ -435,9 +475,14 @@ textually would let git pick a winner.
 
 Precedence when the three sources disagree:
 
-1. an explicit `(buffers.v1.field).ordinal` pin
-2. the ledger
-3. derivation from the proto field number
+```mermaid
+flowchart TD
+    A{"explicit<br/>(buffers.v1.field).ordinal?"}
+    A -- yes --> P["use the pin<br/>and report if it contradicts the ledger"]
+    A -- no --> B{"recorded in buffers.lock?"}
+    B -- yes --> L["use the ledger<br/>a consumer is already reading that slot"]
+    B -- no --> D["derive from the proto field number"]
+```
 
 A pin outranks the ledger — it is the escape hatch for adopting a `.capnp` that
 predates this plugin — but a pin that contradicts the ledger is *reported*,
@@ -457,20 +502,42 @@ Built on [protokit](https://github.com/the-protobuf-project/protokit), the same
 IR engine behind [store](https://github.com/the-protobuf-project/store) and
 [cache](https://github.com/the-protobuf-project/cache), and laid out the same way.
 
+```mermaid
+flowchart TB
+    subgraph entry["entry points"]
+        PL["cmd/protoc-gen-buffers<br/>emits schema, invokes nothing"]
+        CL["cmd/buffers<br/>compiles protos, renders, drives toolchains"]
+    end
+
+    subgraph sources["factory/source"]
+        SP["proto/<br/>descriptors to graph"]
+        SF["protofile/<br/>.proto or descriptor set to graph"]
+    end
+
+    V["factory/vocab<br/>buffers.v1 to protokit's neutral types"]
+    M["factory/coreir<br/>the Source to Target model"]
+
+    subgraph targets["factory/target"]
+        T1["flatbuffers"]
+        T2["capnp"]
+        T3["thrift"]
+        T4["ros"]
+        T5["wire"]
+    end
+
+    LG["factory/target/langs<br/>drives flatc, capnp, thrift<br/>reports what is missing"]
+
+    PL --> SP
+    CL --> SF
+    SP --> M
+    SF --> M
+    V -.-> M
+    M --> T1 & T2 & T3 & T4 & T5
+    T1 & T2 & T3 --> LG
 ```
-protobuf/buffers/v1/     the buffers.v1 vocabulary (a BSR module)
-plugin/
-  factory/
-    coreir/              the Source → Target model
-    vocab/               buffers.v1 → protokit's neutral annotation types
-    source/proto/        descriptors → graph  (the plugin's path)
-    source/protofile/    .proto or a descriptor set → graph  (the CLI's path)
-    target/{flatbuffers,capnp,thrift,ros,wire}/
-    target/langs/        drives flatc, capnp and thrift; reports what is missing
-    registry/            wires sources and targets; owns the golden tests
-  cmd/protoc-gen-buffers/  the buf/protoc plugin — emits schema, invokes nothing
-  cmd/buffers/             the CLI — compiles protos, renders, drives toolchains
-```
+
+`factory/registry` wires the sources and targets together and owns the golden
+tests; `protobuf/buffers/v1/` is the vocabulary itself, published as a BSR module.
 
 **Why a third IR rather than protokit's other two.** The message graph this
 plugin renders from lives in protokit as `protokit/buffers`, alongside the schema
@@ -478,8 +545,8 @@ IR and the service IR. It is a third frontend rather than a use of either, becau
 both fail for a serialization target in ways configuration cannot fix. The schema
 IR folds messages into databases and tables — right for a generator that stores
 things, wrong here: it keeps only resources and what is reachable from them, so a
-plain `Vector3` has no representation, while a `.fbs` that omits it does not
-compile. It also collapses the four 64-bit widths into one neutral type, which a
+plain value type like `Money` or `LatLng` has no representation, while a `.fbs`
+that omits it does not compile. It also collapses the four 64-bit widths into one neutral type, which a
 database is right to do and a serialization schema is not. The service IR is
 closer, but only materializes messages reachable from a method — and a `.proto` of
 pure messages with no service is the most common input a serialization plugin
@@ -502,8 +569,8 @@ needing a subprocess lives in the CLI.
 
 **`option go_package` is not required.** protogen — the library every protoc
 plugin builds on — refuses a request whose generated files declare no Go import
-path. That is right for `protoc-gen-go` and wrong here: a `.proto` written for ROS
-or FlatBuffers has no reason to name a Go package. `buffers` supplies one out of
+path. That is right for `protoc-gen-go` and wrong here: a `.proto` that will only
+ever be compiled to FlatBuffers or Thrift has no reason to name a Go package. `buffers` supplies one out of
 band so the request builds, while leaving the descriptor untouched, so the
 Cap'n Proto target still knows the option is absent and says so rather than
 inventing a `$Go.package`.
@@ -520,6 +587,11 @@ publisher and subscriber generation will read. An eCAL channel and a ROS topic a
 the same idea under two names.
 
 ## Development
+
+The example protos under `examples/proto` model a sensor API. That is a fixture
+choice, not a statement about scope: it exercises bounded arrays, a oneof, a map,
+a streaming method and a packed struct in one tree, which is most of the hard
+cases in one place. Nothing in the plugin knows what a sensor is.
 
 ```sh
 just ci          # lint, build, test — mutates nothing

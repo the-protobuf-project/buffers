@@ -20,12 +20,19 @@
 //	               plugin/cmd/buffers does.
 //	yaml.v3        buffers.yaml and buffers.lock.
 //
-// Notably absent: flatc, capnp, thrift and the Wire compiler. This plugin *emits
-// schemas those toolchains consume* and shells out to them from the CLI; it does
-// not link against, vendor, or reimplement any of them. Three of the four are C++
-// programs, so there is no version of "bundle them into the binary" that Go can
-// reach — which is why langs/install.go puts the effort into reporting a missing
-// one precisely instead.
+// Notably absent: flatc, capnp, thrift and the Wire compiler. This plugin emits
+// schemas all four consume, and links against, vendors and reimplements none of
+// them.
+//
+// Only the first three are ever invoked from here, and only by the CLI. Wire and
+// rosidl are not: Gradle and colcon drive those inside the consuming build, which
+// owns a workspace nothing here can see, so those two targets emit their
+// definitions and stop.
+//
+// All three of the invoked ones are C++ programs, so there is no version of
+// "bundle them into the binary" that Go can reach — which is why
+// target/langs/install.go puts the effort into reporting a missing one precisely
+// instead.
 module github.com/the-protobuf-project/buffers
 
 go 1.26.4
