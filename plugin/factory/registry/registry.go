@@ -22,6 +22,7 @@ import (
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/emit"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/flatbuffers"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/ros"
+	"github.com/the-protobuf-project/buffers/plugin/factory/target/thrift"
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/wire"
 )
 
@@ -56,6 +57,7 @@ func New(sink emit.Sink, opts buffers.Options, info provenance.Info, run Options
 	reg.AddTarget(flatbuffers.New(sink, info))
 	reg.AddTarget(capnp.New(sink, info, run.GoModule, run.Languages...))
 	reg.AddTarget(ros.New(sink, info))
+	reg.AddTarget(thrift.New(sink, info))
 	reg.AddTarget(wire.New(sink, info))
 	return reg
 }

@@ -29,7 +29,7 @@ func targetsCmd() *cobra.Command {
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "TARGET\tSCHEMA\tTOOLCHAIN\tLANGUAGES")
 
-			for _, name := range []string{"flatbuffers", "capnp", "ros", "wire"} {
+			for _, name := range []string{"flatbuffers", "capnp", "thrift", "ros", "wire"} {
 				tgt, ok := reg.Targets[name]
 				if !ok {
 					continue
@@ -46,7 +46,11 @@ func targetsCmd() *cobra.Command {
 				case driveable && installed:
 					status = tool + " (installed)"
 				case driveable:
-					status = tool + " (NOT on PATH)"
+					// The install line itself lives in `buffers doctor`, which
+					// picks the one this machine's package manager takes. Naming
+					// five of them in a table column would make the column
+					// unreadable to get one line to the person who needs it.
+					status = tool + " (NOT on PATH — run: buffers doctor)"
 				}
 
 				// The first language is always "schema", which is not a language

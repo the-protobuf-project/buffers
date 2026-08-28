@@ -38,10 +38,14 @@ annotations:
 #          tolerated and warned about rather than refused.
 #   capnp  0.9 is the floor for the generics and stream conventions the RPC
 #          interfaces emit.
+#   thrift 0.13 is where `binary` became usable as a map key type and the Go
+#          generator's package_prefix option settled — the option that makes the
+#          generated Go's cross-package imports resolve at all.
 #   wire   5.0 is where the Gradle plugin's `kotlin { rpcRole }` block settled.
 runtime:
   flatc: '>=2.0'   # >=23.1.4 for compilable Go output
   capnp: '>=0.9'
+  thrift: '>=0.13'
   wire: '>=5.0'
 
 facets:
@@ -72,6 +76,7 @@ facets:
 outputs:
   - '**/*.fbs'
   - '**/*.capnp'
+  - '**/*.thrift'
   - '**/*.msg'
   - '**/*.srv'
   - '**/*.proto'

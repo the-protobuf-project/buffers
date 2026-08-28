@@ -41,6 +41,19 @@ plugins:
       - go_module=github.com/the-protobuf-project/buffers/examples/generated/_lang/capnp/go
 
   - local: protoc-gen-buffers
+    out: examples/generated/thrift
+    opt:
+      - target=thrift
+      - lock=examples/generated/buffers.lock
+      - strict=ordinal:error
+      # Mirrors examples/buffers.yaml, for the reason the capnp entry above
+      # gives: the two paths must render identical schema or the "examples are
+      # current" gate fails on alternate runs.
+      - lang=go
+      - lang=py
+      - go_module=github.com/the-protobuf-project/buffers/examples/generated/_lang/thrift/go
+
+  - local: protoc-gen-buffers
     out: examples/generated/ros
     opt:
       - target=ros

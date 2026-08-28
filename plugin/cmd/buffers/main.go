@@ -4,7 +4,7 @@
 // It is the second of this repository's two entry points. protoc-gen-buffers is
 // the first: a protoc plugin that runs inside a buf or protoc invocation and
 // emits schema. This one compiles the protos itself, renders every configured
-// target in one pass, and then runs flatc or capnp over the result.
+// target in one pass, and then runs flatc, capnp or thrift over the result.
 //
 // The split is deliberate. A protoc plugin that shelled out to another compiler
 // would hand that compiler's availability and latency to every caller, including
@@ -21,6 +21,7 @@
 //	buffers generate             # render every configured target
 //	buffers generate --lang go   # ... and compile the schema into Go
 //	buffers targets              # what can be emitted, and what is installed
+//	buffers doctor               # what is missing here, and how to install it
 //	buffers verify               # fail if regenerating would move a slot
 package main
 
@@ -51,13 +52,16 @@ func root() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "buffers",
 		Short: "One AIP-annotated schema, every serialization surface",
-		Long: `buffers converts AIP-annotated protobuf into FlatBuffers, Cap'n Proto, ROS 2
-and Square Wire schema, and drives the toolchains that compile it.
+		Long: `buffers converts AIP-annotated protobuf into FlatBuffers, Cap'n Proto, Apache
+Thrift, ROS 2 and Square Wire schema, and drives the toolchains that compile it.
 
 Every field is assigned a target slot that does not move between runs, recorded
 in buffers.lock. That file is the point of the tool: a proto field number and a
 Cap'n Proto ordinal are different numbering schemes, and a slot that silently
-shifts when someone deletes a field is a wire break that nothing else reports.`,
+shifts when someone deletes a field is a wire break that nothing else reports.
+
+Thrift is the exception, and needs no ledger: its field ids are proto field
+numbers, so nothing can shift.`,
 		SilenceUsage: true,
 		// A failure inside a command is not a usage error, and printing the whole
 		// help text after a schema diagnostic buries it.
@@ -65,7 +69,7 @@ shifts when someone deletes a field is a wire break that nothing else reports.`,
 		Version:       version,
 	}
 
-	cmd.AddCommand(generateCmd(), verifyCmd(), targetsCmd(), initCmd())
+	cmd.AddCommand(generateCmd(), verifyCmd(), targetsCmd(), doctorCmd(), initCmd())
 	return cmd
 }
 

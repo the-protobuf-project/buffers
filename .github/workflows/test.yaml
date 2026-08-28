@@ -29,7 +29,7 @@ jobs:
       # what happens to be installed on it. Installing them here is therefore not
       # optional dressing: it is what makes the strongest test in the suite
       # actually run rather than silently pass.
-      - name: Install flatc and capnp
+      - name: Install capnp and thrift
         run: |
           sudo apt-get update
           # libcapnp-dev, not just capnproto: Ubuntu splits the compiler from
@@ -37,8 +37,12 @@ jobs:
           # nothing under /usr/include/capnp, so every generated schema fails to
           # compile with "Import failed: /capnp/c++.capnp" — which reads as a
           # defect in the emitted schema and is a missing package.
-          sudo apt-get install -y capnproto libcapnp-dev
+          # thrift-compiler is Ubuntu's name for the Apache Thrift compiler, and
+          # unlike flatc the archive version is new enough: the floor the emitted
+          # schema needs is 0.13, for the Go generator's package_prefix option.
+          sudo apt-get install -y capnproto libcapnp-dev thrift-compiler
           capnp --version
+          thrift --version
           test -f /usr/include/capnp/c++.capnp
 
       # flatc from a release rather than from apt, which still ships 2.0.8 —
@@ -103,12 +107,12 @@ jobs:
           version: 1.72.0
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      # The example config compiles the emitted schema into eight languages, so
+      # The example config compiles the emitted schema into ten languages, so
       # this job needs the same toolchains the test job does.
       - name: Install toolchains
         run: |
           sudo apt-get update
-          sudo apt-get install -y capnproto libcapnp-dev
+          sudo apt-get install -y capnproto libcapnp-dev thrift-compiler
           curl -fsSL -o /tmp/flatc.zip \
             "https://github.com/google/flatbuffers/releases/download/v25.2.10/Linux.flatc.binary.g++-13.zip"
           unzip -q -o /tmp/flatc.zip -d /tmp/flatc

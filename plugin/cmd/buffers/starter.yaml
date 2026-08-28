@@ -41,6 +41,13 @@ generate:
   - target: capnp
     # languages: [go]          # runs capnp compile over the emitted .capnp
 
+  # Apache Thrift. The closest fit of the four: a Thrift field id *is* the proto
+  # field number, so this is the one target buffers.lock has no say over, and the
+  # only one with a real map type.
+  - target: thrift
+    # languages: [go, py]      # runs thrift --gen over the emitted .thrift
+    # go_module: example.com/m/generated/thrift-go   # needed for Go output
+
   - target: ros
 
   - target: wire

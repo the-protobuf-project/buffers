@@ -22,7 +22,7 @@ var update = flag.Bool("update", false, "rewrite the golden files")
 
 // targets is every target, rendered in a stable order so a failure names the same
 // subtest each run.
-var targets = []string{"capnp", "flatbuffers", "ros", "wire"}
+var targets = []string{"capnp", "flatbuffers", "ros", "thrift", "wire"}
 
 func TestGolden(t *testing.T) {
 	for _, target := range targets {

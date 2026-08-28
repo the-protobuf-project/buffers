@@ -1,39 +1,47 @@
 # Language detection on GitHub.
 #
-# Two independent linguist exclusions have to be turned off before either of the
+# Two independent linguist exclusions have to be turned off before any of the
 # languages this plugin exists to emit appears at all, and neither of them is
 # what linguist-detectable controls.
 #
-# Every .capnp and .fbs here is committed twice: once under examples/generated as
-# the demonstration output, and once under plugin/factory/registry/testdata as
-# the golden fixture the tests compare it against. linguist's documentation.yml
-# matches `^[Ee]xamples/` and its vendor.yml matches `(^|/)testdata/`, so *both*
-# copies are dropped from the language statistics before detectability is ever
-# consulted. That is why the sidebar showed no Cap'n Proto and no FlatBuffers
-# rather than a small slice of each — with the files split evenly across two
-# excluded trees, the count was zero.
+# Every .capnp, .fbs and .thrift here is committed twice: once under
+# examples/generated as the demonstration output, and once under
+# plugin/factory/registry/testdata as the golden fixture the tests compare it
+# against. linguist's documentation.yml matches `^[Ee]xamples/` and its vendor.yml
+# matches `(^|/)testdata/`, so *both* copies are dropped from the language
+# statistics before detectability is ever consulted. That is why the sidebar
+# showed no Cap'n Proto, no FlatBuffers and no Thrift rather than a small slice of
+# each — with the files split evenly across two excluded trees, the count was
+# zero.
 #
 # The examples copy is the one to count: it is the output, and it is what someone
 # is looking at when they want to know what this produces. The testdata copy
-# stays vendored — it is the same ten files, and counting a golden fixture as
+# stays vendored — it is the same fifteen files, and counting a golden fixture as
 # source would double every number for no added truth.
 examples/** linguist-documentation=false
 
 # Detectability is a separate, per-language default: linguist counts `programming`
-# and `markup` languages and ignores `data` ones. Of the three below only Cap'n
-# Proto is `programming`, so its line is belt and braces while the other two are
-# load-bearing — .proto is linguist's `Proto` (data) and .fbs its `FlatBuffers`
-# (data), and without these they stay at zero even inside a counted directory.
-*.proto linguist-detectable=true
-*.fbs   linguist-detectable=true
-*.capnp linguist-detectable=true
+# and `markup` languages and ignores `data` ones. Of the four below, Cap'n Proto
+# and Thrift are `programming`, so those two lines are belt and braces while the
+# other two are load-bearing — .proto is linguist's `Proto` (data) and .fbs its
+# `FlatBuffers` (data), and without these they stay at zero even inside a counted
+# directory.
+#
+# The belt-and-braces lines are kept rather than trimmed because the cost is a
+# line each and the failure they cover is silent: a linguist release that
+# reclassifies either language would drop it from the sidebar with nothing here
+# changing and no error anywhere.
+*.proto  linguist-detectable=true
+*.fbs    linguist-detectable=true
+*.capnp  linguist-detectable=true
+*.thrift linguist-detectable=true
 
 # .msg and .srv are ROS interface definitions. linguist has no id for them, and a
 # value with a space in it is not expressible here at all — git splits this file
 # on whitespace and does not honour quoting — so they are simply marked as
 # generated, which is what they are.
-*.msg   linguist-generated=true
-*.srv   linguist-generated=true
+*.msg    linguist-generated=true
+*.srv    linguist-generated=true
 
 # Everything below is compared byte-for-byte by the test suite, so git must not
 # rewrite it on checkout. Without these, git's default core.autocrlf=true on
@@ -47,7 +55,9 @@ examples/** linguist-documentation=false
 # end of one — which reads as a content mismatch, not a line-ending one.
 *.proto text eol=lf
 
-# Golden fixtures: case inputs and expected output trees.
+# Golden fixtures: case inputs and expected output trees. The glob is deliberate
+# rather than a list of extensions — .thrift joined .fbs and .capnp here without
+# this file needing a line, and the next target will too.
 plugin/factory/registry/testdata/** text eol=lf
 
 # Committed generated output. Not gated by CI, but `just regen` rewrites it with

@@ -41,6 +41,8 @@ func Extension(target string) string {
 		return ".fbs"
 	case "capnp":
 		return ".capnp"
+	case "thrift":
+		return ".thrift"
 	}
 	return ""
 }
