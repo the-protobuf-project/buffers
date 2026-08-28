@@ -179,6 +179,11 @@ is missing and the exact command to install it.
 ```mermaid
 ---
 title: "How far each target reaches"
+config:
+  themeVariables:
+    cScale0: "#4285F4"
+    cScale1: "#1F9D55"
+    cScale2: "#D22128"
 ---
 radar-beta
   axis cpp["C++"], go["Go"], rust["Rust"], py["Python"]
@@ -335,6 +340,13 @@ mirroring the proto source tree, and packages taken from the proto's own
 One `proto/billing/v1/billing.proto` becomes:
 
 ```mermaid
+---
+config:
+  themeVariables:
+    treeView:
+      labelColor: "#717a84"
+      lineColor: "#717a84"
+---
 treeView-beta
     generated/
         cpp/
@@ -598,6 +610,13 @@ IR engine behind [store](https://github.com/the-protobuf-project/store) and
 [cache](https://github.com/the-protobuf-project/cache), and laid out the same way.
 
 ```mermaid
+---
+config:
+  themeVariables:
+    treeView:
+      labelColor: "#717a84"
+      lineColor: "#717a84"
+---
 treeView-beta
     buffers/
         protobuf/
