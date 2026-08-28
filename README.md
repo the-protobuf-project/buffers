@@ -176,48 +176,68 @@ buf build proto -o descriptors.binpb --as-file-descriptor-set
 `buffers targets` prints this for your machine, and `buffers doctor` prints what
 is missing and the exact command to install it.
 
-Every ✅ below was earned against this repository's own emitted schema rather than
-read off a feature list — though not all of them the same way, because one of
-these backends has no compiler to run:
+```mermaid
+---
+title: "How far each target reaches"
+---
+radar-beta
+  axis cpp["C++"], go["Go"], rust["Rust"], py["Python"]
+  axis java["Java"], kt["Kotlin"], dart["Dart"], swift["Swift"]
+
+  curve fb["FlatBuffers"]{2, 2, 2, 2, 2, 2, 2, 2}
+  curve cp["Cap'n Proto"]{2, 2, 2, 1, 1, 1, 0, 0}
+  curve th["Thrift"]{2, 2, 2, 2, 2, 2, 2, 1}
+
+  max 2
+  min 0
+```
+
+Two means the generator runs and produces code, one means it works with a caveat
+worth reading below, zero means no generator exists. `ros` and `wire` are left off
+the radar because they are narrow by design rather than by limitation — ros
+reaches C++ and Python through colcon, wire reaches Java, Kotlin and Swift through
+Gradle — and plotting two mostly-empty shapes would say less than that sentence
+does.
+
+FlatBuffers is the full octagon, which is why it is the one to reach for when a
+project spans every client you have.
+
+Everything below was earned against this repository's own emitted schema rather
+than read off a feature list, though not all of it the same way:
 
 - **Generated backends** — every cell but Python under `capnp` — were verified by
   invoking the generator and checking it produced files.
-- **`capnp` + Python is runtime-loaded**, so there is nothing to invoke. It was
+- **`capnp` with Python is runtime-loaded**, so there is nothing to invoke. It was
   verified by loading the emitted `.capnp` with pycapnp and round-tripping a
   message: the schema parsed, a `Sensor` wrote to 80 bytes and read back intact,
   and the `payload` oneof arrived as a union.
 
-❌ means no generator exists at all; ⚠️ means it depends on the version installed.
-
 | Language | `flatbuffers` | `capnp` | `thrift` | `ros` | `wire` |
-|---|:--:|:--:|:--:|:--:|:--:|
-| **C++** | ✅ | ✅ built in | ✅ | ✅ | – |
-| **Go** | ✅ | ✅ `capnpc-go` | ✅ | – | – |
-| **Rust** | ✅ | ✅ `capnpc-rust` | ✅ `rs` | – | – |
-| **Python** | ✅ | ✅ †runtime-loaded | ✅ `py` | ✅ | – |
-| **Java** | ✅ | ✅ ‡no interfaces | ✅ | – | ✅ |
-| **Kotlin** | ✅ | ✅ ‡via `capnpc-java` | ✅ | – | ✅ |
-| **Dart** | ✅ | ❌ none exists | ✅ | – | – |
-| **Swift** | ✅ | ❌ none exists | ⚠️ version-dependent | – | ✅ |
+|---|---|---|---|---|---|
+| **C++** | yes | yes, built in | yes | yes | – |
+| **Go** | yes | yes, `capnpc-go` | yes | – | – |
+| **Rust** | yes | yes, `capnpc-rust` | yes, `rs` | – | – |
+| **Python** | yes | yes, runtime-loaded | yes, `py` | yes | – |
+| **Java** | yes | yes, without interfaces | yes | – | yes |
+| **Kotlin** | yes | yes, via `capnpc-java` | yes | – | yes |
+| **Dart** | yes | no generator exists | yes | – | – |
+| **Swift** | yes | no generator exists | varies by version | – | yes |
 
-**Every language above is reachable, and FlatBuffers alone covers all of them** —
-which is why it is the one to reach for when a project spans every client you
-have.
+Three cells carry a caveat, and `buffers` reports each rather than letting you
+meet it as a crash:
 
-Two Cap'n Proto cells carry a caveat, and `buffers` reports both rather than
-letting you meet them as a crash:
-
-- **†Python has no generator, and needs none.** pycapnp loads the schema when
-  your program starts — `capnp.load("sensors/v1/sensors.capnp")` — so the emitted
-  `.capnp` *is* the deliverable. `--lang python` says so and compiles nothing.
-- **⚠️Thrift's generator set moves between releases.** Thrift 0.24 dropped the
+- **Python needs no Cap'n Proto generator, and none exists.** pycapnp loads the
+  schema when your program starts — `capnp.load("sensors/v1/sensors.capnp")` — so
+  the emitted `.capnp` *is* the deliverable. `--lang python` says so and compiles
+  nothing.
+- **Thrift's generator set moves between releases.** Thrift 0.24 dropped the
   Swift generator and added Mermaid; the thrift Ubuntu currently packages is the
   other way round. Both are ordinary supported versions, so the language column
   above is a **superset** rather than a description of any one build. `buffers`
   asks the installed compiler what it actually has, and a language it lacks is
   reported with the set it does offer rather than as thrift's bare
   `Unable to get a generator`.
-- **‡Java and Kotlin cannot carry the RPC interfaces.** capnproto-java is
+- **Java and Kotlin cannot carry the RPC interfaces.** capnproto-java is
   serialization-only and its plugin aborts on an interface with
   `failed: interfaces not implemented`, naming a line in its own C++. The build
   warns first, names the service, and points at
@@ -225,7 +245,7 @@ letting you meet them as a crash:
   the same path, since Cap'n Proto has no Kotlin generator and Kotlin consumes
   the Java output over JVM interop.
 
-The ❌ cells are upstream facts, not omissions here.
+The absent generators are upstream facts, not omissions here.
 [Cap'n Proto's own list of implementations](https://capnproto.org/otherlang.html)
 names no Swift, Dart or Kotlin implementation; the only `capnpc-swift` is an
 [abandoned work in progress](https://github.com/Danappelxx/capnpc-swift). And
@@ -312,14 +332,32 @@ Generated language code is laid out the way protoc lays out its own: paths
 mirroring the proto source tree, and packages taken from the proto's own
 `java_package` / `go_package` rather than the bare proto package.
 
+One `proto/billing/v1/billing.proto` becomes:
+
 ```mermaid
-flowchart LR
-    S["proto/billing/v1/billing.proto<br/>package billing.v1"]
-    S --> C["cpp/billing/v1/billing_generated.h<br/>namespace billing::v1"]
-    S --> G["go/billingv1/order.go<br/>package billingv1"]
-    S --> J["java/com/billing/v1/Order.java<br/>package com.billing.v1"]
-    S --> Y["python/billing/v1/Order.py"]
+treeView-beta
+    generated/
+        cpp/
+            billing/
+                v1/
+                    billing_generated.h
+        go/
+            billingv1/
+                order.go
+        java/
+            com/
+                billing/
+                    v1/
+                        Order.java
+        python/
+            billing/
+                v1/
+                    Order.py
 ```
+
+The three that declare a package declare the one the proto asked for —
+`billing::v1` for C++, `billingv1` for Go, `com.billing.v1` for Java — rather
+than the bare proto package each generator would have derived on its own.
 
 That takes per-directory invocation, because flatc is really two behaviours: Go,
 Java, Kotlin and Python build a tree from the schema namespace, while C++, Rust,
@@ -560,6 +598,39 @@ IR engine behind [store](https://github.com/the-protobuf-project/store) and
 [cache](https://github.com/the-protobuf-project/cache), and laid out the same way.
 
 ```mermaid
+treeView-beta
+    buffers/
+        protobuf/
+            buffers/
+                v1/
+                    annotations.proto
+                    rpc.proto
+                    schema.proto
+        plugin/
+            cmd/
+                buffers/
+                protoc-gen-buffers/
+            factory/
+                coreir/
+                vocab/
+                source/
+                    proto/
+                    protofile/
+                target/
+                    flatbuffers/
+                    capnp/
+                    thrift/
+                    ros/
+                    wire/
+                    langs/
+                registry/
+```
+
+`protobuf/buffers/v1` is the vocabulary, published as a BSR module. `cmd/` holds
+the two entry points, `factory/` the machinery they share. How a run moves
+through it:
+
+```mermaid
 flowchart TB
     subgraph entry["entry points"]
         PL["cmd/protoc-gen-buffers<br/>emits schema, invokes nothing"]
@@ -593,8 +664,8 @@ flowchart TB
     T1 & T2 & T3 --> LG
 ```
 
-`factory/registry` wires the sources and targets together and owns the golden
-tests; `protobuf/buffers/v1/` is the vocabulary itself, published as a BSR module.
+`factory/registry` is what wires the sources and targets together, and where the
+golden tests live.
 
 **Why a third IR rather than protokit's other two.** The message graph this
 plugin renders from lives in protokit as `protokit/buffers`, alongside the schema
