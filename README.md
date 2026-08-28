@@ -176,10 +176,18 @@ buf build proto -o descriptors.binpb --as-file-descriptor-set
 `buffers targets` prints this for your machine, and `buffers doctor` prints what
 is missing and the exact command to install it.
 
-Every cell below was produced by running the real compiler over this
-repository's own emitted schema. ✅ means verified here; ⬚ means the generator
-exists upstream but is a separate install this machine did not have; ❌ means no
-generator exists at all.
+Every ✅ below was earned against this repository's own emitted schema rather than
+read off a feature list — though not all of them the same way, because one of
+these backends has no compiler to run:
+
+- **Generated backends** — every cell but Python under `capnp` — were verified by
+  invoking the generator and checking it produced files.
+- **`capnp` + Python is runtime-loaded**, so there is nothing to invoke. It was
+  verified by loading the emitted `.capnp` with pycapnp and round-tripping a
+  message: the schema parsed, a `Sensor` wrote to 80 bytes and read back intact,
+  and the `payload` oneof arrived as a union.
+
+❌ means no generator exists at all; ⚠️ means it depends on the version installed.
 
 | Language | `flatbuffers` | `capnp` | `thrift` | `ros` | `wire` |
 |---|:--:|:--:|:--:|:--:|:--:|
@@ -249,9 +257,12 @@ protobuf,wire,3
 
 The widths are generator backends, as `buffers targets` counts them, not a quality
 ranking, and Thrift's is the superset across versions rather than any one build.
-Seven of its 30 emit documentation or a schema description rather than a language — GraphViz, HTML, Markdown, Mermaid, JSON, XML and XSD;
-Cap'n Proto's eight each need their own `capnpc-` plugin installed,
-while Thrift's and FlatBuffers' are built into the one binary. Reach is one axis —
+Seven of its 30 emit documentation or a schema description rather than a
+language — GraphViz, HTML, Markdown, Mermaid, JSON, XML and XSD;
+Cap'n Proto's eight are the ones that vary: C++ is built into `capnp` itself and
+Python needs no generator at all, while the other six are separately installed
+`capnpc-` plugins — five binaries, since Kotlin is served by `capnpc-java`.
+Thrift's and FlatBuffers' are all built into the one binary. Reach is one axis —
 what each format can actually *hold* is the next section, and it runs the other
 way.
 
@@ -592,7 +603,8 @@ both fail for a serialization target in ways configuration cannot fix. The schem
 IR folds messages into databases and tables — right for a generator that stores
 things, wrong here: it keeps only resources and what is reachable from them, so a
 plain value type like `Money` or `LatLng` has no representation, while a `.fbs`
-that omits it does not compile. It also collapses the four 64-bit widths into one neutral type, which a
+that omits it does not compile. It also collapses the four 64-bit widths into
+one neutral type, which a
 database is right to do and a serialization schema is not. The service IR is
 closer, but only materializes messages reachable from a method — and a `.proto` of
 pure messages with no service is the most common input a serialization plugin
@@ -616,7 +628,8 @@ needing a subprocess lives in the CLI.
 **`option go_package` is not required.** protogen — the library every protoc
 plugin builds on — refuses a request whose generated files declare no Go import
 path. That is right for `protoc-gen-go` and wrong here: a `.proto` that will only
-ever be compiled to FlatBuffers or Thrift has no reason to name a Go package. `buffers` supplies one out of
+ever be compiled to FlatBuffers or Thrift has no reason to name a Go
+package. `buffers` supplies one out of
 band so the request builds, while leaving the descriptor untouched, so the
 Cap'n Proto target still knows the option is absent and says so rather than
 inventing a `$Go.package`.
