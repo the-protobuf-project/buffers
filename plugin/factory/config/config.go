@@ -94,7 +94,7 @@ type Proto struct {
 
 // Entry is one target rendering.
 type Entry struct {
-	// Target names the backend: flatbuffers, capnp, ros, wire.
+	// Target names the backend: flatbuffers, capnp, thrift, ros, wire.
 	Target string `yaml:"target"`
 
 	// Out is this target's directory, relative to Config.Out. Defaults to the

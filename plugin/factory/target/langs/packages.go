@@ -12,6 +12,26 @@ import (
 	"strings"
 )
 
+// generatorOptions computes the options a compiler takes attached to the
+// generator name rather than as flags.
+//
+// Only Thrift has any, and only for Go, where it solves exactly the problem
+// flatc's --go-module-name solves and capnpc-go's $Go.import solves: the
+// generator knows the package tree and not the module root it hangs from, so
+// left alone it writes a cross-package import as a bare path.
+//
+//	import "wellknown"   // package wellknown is not in std
+//
+// package_prefix is prepended to every generated import, which makes it
+// resolvable — and it has to end in a slash, because thrift concatenates it
+// rather than joining it.
+func generatorOptions(target, lang string, g Group) []string {
+	if target != "thrift" || lang != "go" || g.GoModule == "" {
+		return nil
+	}
+	return []string{"package_prefix=" + strings.TrimSuffix(g.GoModule, "/") + "/"}
+}
+
 // packageFlags computes the per-group flags that make the generated package match
 // what the proto declares.
 func packageFlags(target, lang string, g Group) []string {
@@ -69,7 +89,7 @@ func packageFlags(target, lang string, g Group) []string {
 // It applies only where output was actually spread out. A generator that nests by
 // namespace resolves its own imports by package name and needs nothing here.
 func includeFlags(target, lang string) []string {
-	if target != "flatbuffers" || NestingOf(lang) != NestFlat {
+	if target != "flatbuffers" || NestingOf(target, lang) != NestFlat {
 		return nil
 	}
 	return []string{"--keep-prefix"}

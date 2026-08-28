@@ -38,6 +38,15 @@ type Info struct {
 
 	// Notes are extra context lines, shown before the project link.
 	Notes []string
+
+	// NoLedger suppresses the buffers.lock note the banner otherwise ends with.
+	//
+	// It exists for the Thrift target, where a field id *is* the proto field
+	// number: nothing in the ledger decides anything in that file, and telling a
+	// reader to consult it about ids it does not record would send them to the
+	// wrong place. Every other target renders slots the ledger owns, which is why
+	// the zero value keeps the note.
+	NoLedger bool
 }
 
 // Render returns the banner, comment-prefixed and newline-terminated.
@@ -52,10 +61,13 @@ func Render(c Comment, in Info) string {
 	if in.Target != "" {
 		notes = append([]string{"target: " + in.Target}, notes...)
 	}
-	// The ledger note goes in every file because it is the non-obvious half of
-	// "do not edit": the ordinals below are not free-floating, and hand-editing
-	// one desynchronizes it from buffers.lock without any error surfacing.
-	notes = append(notes, "field slots below are recorded in "+LedgerName+"; edit the .proto, not this file")
+	// The ledger note goes in almost every file because it is the non-obvious half
+	// of "do not edit": the ordinals below are not free-floating, and hand-editing
+	// one desynchronizes it from buffers.lock without any error surfacing. The
+	// exception is a target whose slots the ledger does not own; see NoLedger.
+	if !in.NoLedger {
+		notes = append(notes, "field slots below are recorded in "+LedgerName+"; edit the .proto, not this file")
+	}
 
 	return header.Render(string(c), header.Info{
 		PluginVersion: in.Version,

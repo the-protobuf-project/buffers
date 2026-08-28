@@ -20,6 +20,9 @@ const (
 // nesting records which behaviour each flatc backend has. Every entry was
 // determined by running flatc and looking at the tree, not from documentation.
 //
+// It is consulted for capnp too, where every language is absent and therefore
+// NestFlat — which is the arrangement capnp's own output already assumes.
+//
 // A language absent from this map is treated as NestFlat, which is the
 // conservative default: mirroring the source tree for a generator that also
 // nests produces a doubled path, which is obvious and easily fixed, while
@@ -44,8 +47,27 @@ var nesting = map[string]Nesting{
 	"nim":     NestFlat,
 }
 
-// NestingOf reports how a language's generator lays out its output.
-func NestingOf(lang string) Nesting { return nesting[lang] }
+// thriftNesting records the same thing for the Apache Thrift compiler, which is
+// a separate table because the two disagree under names they share.
+//
+// `php` is the clearest case: flatc builds a namespace tree for it and thrift
+// writes one flat file per schema, so a single map keyed on the language alone
+// would give one of them the wrong answer. The entries here were determined the
+// same way — by running thrift and looking at the tree.
+var thriftNesting = map[string]Nesting{
+	"go":     NestByNamespace,
+	"java":   NestByNamespace,
+	"py":     NestByNamespace,
+	"netstd": NestByNamespace,
+}
+
+// NestingOf reports how a target's generator for a language lays out its output.
+func NestingOf(target, lang string) Nesting {
+	if target == "thrift" {
+		return thriftNesting[lang]
+	}
+	return nesting[lang]
+}
 
 // Group is one set of schema files sharing a package, which is to say one source
 // directory.
@@ -101,13 +123,14 @@ func Plan(target, lang, schemaDir, outDir string, groups []Group) []Request {
 			OutDir:    outDir,
 			Files:     g.Files,
 		}
-		if NestingOf(lang) == NestFlat && g.Dir != "" {
+		if NestingOf(target, lang) == NestFlat && g.Dir != "" {
 			// Reproduce the source tree, which is what protoc does and what a
 			// generator that emits one flat file per schema will not do alone.
 			req.OutDir = path.Join(outDir, g.Dir)
 		}
 		req.Flags = packageFlags(target, lang, g)
 		req.Flags = append(req.Flags, includeFlags(target, lang)...)
+		req.Options = generatorOptions(target, lang, g)
 		out = append(out, req)
 	}
 	return out

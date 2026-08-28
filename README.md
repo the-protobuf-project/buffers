@@ -4,8 +4,9 @@
   <strong>One AIP schema, every serialization surface.</strong> buffers is a
   <code>protoc</code> plugin and CLI that turns the AIP-annotated protobuf you
   already have into <strong>FlatBuffers</strong>, <strong>Cap'n Proto</strong>
-  (with RPC), <strong>ROS 2</strong> and <strong>Square Wire</strong> — and pins
-  every field to a target slot that does not move.
+  (with RPC), <strong>Apache Thrift</strong>, <strong>ROS 2</strong> and
+  <strong>Square Wire</strong> — and pins every field to a target slot that does
+  not move.
 </p>
 
 <p align="center">
@@ -37,7 +38,7 @@
 A robotics or trading stack rarely gets to pick one serialization format. gRPC
 carries the control plane, a shared-memory bus carries the hot path, ROS carries
 whatever the sensor vendor shipped, and the mobile client wants Kotlin. Each has
-its own IDL, and the usual answer is to write the same types four times and hope
+its own IDL, and the usual answer is to write the same types five times and hope
 review catches the drift.
 
 buffers takes the protobuf definition as the source of truth and derives the rest.
@@ -52,10 +53,12 @@ flowchart LR
     L[("buffers.lock")] <--> IR
     IR --> FB[".fbs"]
     IR --> CP[".capnp + RPC"]
+    IR --> TH[".thrift + services"]
     IR --> RS[".msg / .srv"]
     IR --> WR["wire.gradle.kts"]
     FB --> FC["flatc → 14 languages"]
     CP --> CC["capnp → 6 languages"]
+    TH --> TC["thrift → 20 languages"]
 ```
 
 ## The problem it actually solves
@@ -152,30 +155,68 @@ buf build proto -o descriptors.binpb --as-file-descriptor-set
 |---|---|---|---|
 | `flatbuffers` | `.fbs` | `flatc` | **cpp, csharp, dart, go, java, kotlin, kotlin-kmp, lobster, lua, nim, php, python, rust, swift, ts** |
 | `capnp` | `.capnp` + RPC interfaces | `capnp` + a `capnpc-<lang>` plugin | c++, go, rust, java, kotlin, python, ts, csharp |
+| `thrift` | `.thrift` + services | `thrift` | **c_glib, cpp, d, dart, delphi, erl, go, haxe, hs, html, java, js, lua, netstd, ocaml, perl, php, py, rb, rs, st, swift, xml** |
 | `ros` | `.msg`, `.srv`, `topics.yaml` | rosidl, via colcon | c, cpp, python |
 | `wire` | `wire.gradle.kts`, `Topics.kt` | Wire, via Gradle | kotlin, java, swift |
 
 ### Picking a target for a language
 
-`buffers targets` prints this for your machine, including which `capnpc-*`
-plugins are actually installed and how to get the ones that are not.
+`buffers targets` prints this for your machine, and `buffers doctor` prints what
+is missing and the exact command to install it.
 
 | Language | Reach it via |
 |---|---|
-| Go, Rust, Python, Java, Kotlin | `flatbuffers` or `capnp` |
-| **Swift, Dart** | `flatbuffers` — no Cap'n Proto generator exists for either |
-| C++ | `flatbuffers`, `capnp`, or `ros` |
-| C#, TypeScript, PHP, Lua, Nim, Lobster | `flatbuffers` (or `capnp` for C#/TS) |
+| Go, Rust, Python, Java, Kotlin | `flatbuffers`, `capnp` or `thrift` |
+| **Swift, Dart** | `flatbuffers` or `thrift` — no Cap'n Proto generator exists for either |
+| C++ | `flatbuffers`, `capnp`, `thrift`, or `ros` |
+| C#, TypeScript, PHP, Lua | `flatbuffers` (or `capnp` for C#/TS, `thrift` for C#/PHP/Lua) |
+| **Erlang, OCaml, Perl, Ruby, D, Haxe** | `thrift` — the only target that reaches any of them |
+| Nim, Lobster | `flatbuffers` |
 
-FlatBuffers is the broadest and the one to reach for when a project needs a
-language the others do not have. Every entry in its row was verified by running
-`flatc` against this repository's own emitted schema, not copied from
-documentation.
+FlatBuffers and Thrift are the two broad ones. Every entry in the FlatBuffers row
+was verified by running `flatc` against this repository's own emitted schema;
+every entry in the Thrift row is a generator built into the one `thrift` binary,
+so unlike Cap'n Proto there is nothing extra to install per language.
 
 Cap'n Proto ships **only** its C++ generator; every other language is a separate
 `capnpc-<lang>` binary you install. `buffers` checks for it before invoking capnp
 and reports the install line rather than letting capnp fail with a bare exec
 error.
+
+### Getting the compilers
+
+No compiler is needed to emit schema — `.fbs`, `.capnp`, `.thrift` and `.msg` are
+written by `buffers` itself. They are needed only when a run asks for a language,
+and `buffers doctor` reports which are present and gives one install line, chosen
+for the package manager you actually have:
+
+```console
+$ buffers doctor
+platform: linux/amd64   package manager: apt
+
+TARGET       COMPILER  STATUS
+flatbuffers  flatc     ok — flatc version 25.2.10
+capnp        capnp     ok — Cap'n Proto version 1.0.2
+thrift       thrift    NOT INSTALLED
+ros          —         driven by colcon in the consuming build
+wire         —         driven by Gradle in the consuming build
+
+thrift (thrift):
+  install: sudo apt-get install -y thrift-compiler
+```
+
+`buffers doctor --strict` exits non-zero when anything is missing, for a CI
+preflight.
+
+> **Why the compilers are not bundled into the binary.** flatc, capnp and thrift
+> are all C++ programs — thrift's is a bison grammar over some fifty thousand
+> lines — and Go cannot compile C++ into a Go binary. The two ways round it are
+> both worse than a one-line install: vendoring the sources behind cgo would
+> require a C++ toolchain to build `buffers` at all and end cross-compilation,
+> and embedding prebuilt binaries would mean shipping three compilers × every
+> supported platform inside every release, then keeping each one patched. So
+> `buffers` shells out, and puts the effort into making a missing compiler report
+> itself precisely rather than as an exec error.
 
 ### Output layout
 
@@ -276,6 +317,26 @@ protojson already does. Every declaration carries a derived 64-bit ID so
 regenerating an unchanged proto is byte-identical. Server-streaming methods become
 a caller-supplied sink capability, which is the idiom, since capnp RPC has no
 streaming return.
+
+**Apache Thrift.** The one target where the slot mapping is the identity. A
+Thrift field id is 1-based, sparse and permanent — which is exactly a proto field
+number — so this target emits the proto number verbatim and **`buffers.lock` has
+no authority over its output**. Deleting a field without reserving it cannot shift
+anything here, because nothing slides down to fill the gap. Identifiers are left
+alone for the same reason Cap'n Proto's are rewritten: Thrift's grammar demands no
+case, so `display_name` stays `display_name` and `SENSOR_KIND_LIDAR` stays itself.
+
+It also has the only real `map<K,V>` of the five, so a proto map stays a map
+rather than decaying into a list of pairs, and a oneof becomes a real `union`.
+
+What it gives up: no unsigned integers (a `uint64` keeps its 64 bits and reads
+back negative above the signed maximum — reported per field), no 32-bit float, no
+streaming, and no nesting. Two further things are decided rather than derived.
+`required` is **never** emitted, because Thrift's `required` is a permanent wire
+contract that can never be relaxed while AIP-203 REQUIRED is an API rule services
+relax routinely. And declarations are emitted in dependency order, because Thrift
+resolves a type name where it is used — a struct declared before something it
+names is a compile error there and legal everywhere else.
 
 **ROS 2.** The lossiest, and the target that says so loudest. No enums (they
 become constant-carrying messages), no unions (a oneof becomes a discriminant
@@ -382,6 +443,14 @@ A pin outranks the ledger — it is the escape hatch for adopting a `.capnp` tha
 predates this plugin — but a pin that contradicts the ledger is *reported*,
 because noticing a slot moving is the ledger's entire job.
 
+**Thrift is exempt, and the exemption is worth understanding.** The ledger exists
+because Cap'n Proto ordinals and FlatBuffers ids are 0-based and contiguous, so a
+deleted field drags everything after it down one. Thrift ids are 1-based, sparse
+and permanent — the same scheme proto uses — so `buffers` emits the proto field
+number unchanged and nothing can shift. `buffers.lock` still records the ordinals
+the other targets are rendered from; it simply has no say over a `.thrift`, which
+is why those files' banners do not send you to it.
+
 ## Architecture
 
 Built on [protokit](https://github.com/the-protobuf-project/protokit), the same
@@ -396,8 +465,8 @@ plugin/
     vocab/               buffers.v1 → protokit's neutral annotation types
     source/proto/        descriptors → graph  (the plugin's path)
     source/protofile/    .proto or a descriptor set → graph  (the CLI's path)
-    target/{flatbuffers,capnp,ros,wire}/
-    target/langs/        drives flatc and capnp
+    target/{flatbuffers,capnp,thrift,ros,wire}/
+    target/langs/        drives flatc, capnp and thrift; reports what is missing
     registry/            wires sources and targets; owns the golden tests
   cmd/protoc-gen-buffers/  the buf/protoc plugin — emits schema, invokes nothing
   cmd/buffers/             the CLI — compiles protos, renders, drives toolchains

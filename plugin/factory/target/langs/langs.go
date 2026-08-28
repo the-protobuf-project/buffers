@@ -1,5 +1,6 @@
 // Package langs drives the external compilers that turn an emitted schema into
-// language code: flatc for FlatBuffers, capnp for Cap'n Proto.
+// language code: flatc for FlatBuffers, capnp for Cap'n Proto, thrift for Apache
+// Thrift.
 //
 // # Why this is the CLI's job and not the plugin's
 //
@@ -24,7 +25,6 @@
 package langs
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,6 +54,12 @@ type Request struct {
 	// options that vary per group. See layout.go.
 	Flags []string
 
+	// Options are generator options for a compiler that takes them attached to
+	// the generator name rather than as separate flags. Thrift spells its Go
+	// module root `--gen go:package_prefix=…`, where flatc spells the equivalent
+	// as a flag of its own, so the two cannot share Flags.
+	Options []string
+
 	// Annotated names the languages whose annotation blocks the emitted schema
 	// carries. It is not the same as Language: a schema annotated for Go needs
 	// go.capnp resolvable even when it is being compiled as C++, because an
@@ -66,75 +72,18 @@ type Tool struct {
 	// Binary is the executable name looked up on PATH.
 	Binary string
 
-	// Install is the line to show someone who does not have it.
-	Install string
+	// Install is how to obtain it, resolved to this machine's package manager at
+	// the point the message is printed. See install.go.
+	Install Install
 
 	// Args builds the command line for one request.
 	Args func(Request) ([]string, error)
+
+	// PerFile makes Run invoke the compiler once per schema file rather than once
+	// for the whole list. It exists for Apache Thrift, whose compiler accepts a
+	// single input file per run.
+	PerFile bool
 }
-
-// tools maps a buffers target to the compiler that consumes its schema.
-//
-// ros and wire are absent, and that is not an omission. rosidl generates from a
-// .msg as part of a colcon build, driven by a package's CMakeLists rather than by
-// a one-shot command, and Wire generates from .proto during a Gradle build. In
-// both cases the build system owns the invocation, and a `buffers` subprocess
-// that tried to take it over would be guessing at a workspace it cannot see.
-var tools = map[string]Tool{
-	"flatbuffers": {
-		Binary:  "flatc",
-		Install: "brew install flatbuffers   (or see https://flatbuffers.dev)",
-		Args: func(r Request) ([]string, error) {
-			flag, ok := flatcFlags[r.Language]
-			if !ok {
-				return nil, fmt.Errorf("flatc has no generator for %q; it supports: %s",
-					r.Language, keys(flatcFlags))
-			}
-			args := []string{flag, "-o", r.OutDir, "-I", r.SchemaDir}
-			args = append(args, r.Flags...)
-			return append(args, r.Files...), nil
-		},
-	},
-	"capnp": {
-		Binary: "capnp",
-		// Two packages on Debian and Ubuntu, and the second is the one people
-		// miss: `capnproto` is the compiler, `libcapnp-dev` is the schema files
-		// every generated .capnp imports. Without it capnp reports
-		// "Import failed: /capnp/c++.capnp", which reads as a defect in the
-		// schema rather than a missing package.
-		Install: "brew install capnp   |   apt install capnproto libcapnp-dev   " +
-			"(see https://capnproto.org/install.html)",
-		Args: func(r Request) ([]string, error) {
-			gen, ok := capnpGenerators[r.Language]
-			if !ok {
-				return nil, fmt.Errorf("capnp has no generator for %q; it supports: %s",
-					r.Language, keys(capnpGenerators))
-			}
-
-			args := []string{"compile", "-I", r.SchemaDir}
-
-			// Annotation schemas for every language whose block the emitted
-			// schema may carry — not only the one being compiled now. A file
-			// annotated for Go fails to compile *as C++* if go.capnp cannot be
-			// resolved, so the import path has to cover what is in the file
-			// rather than what is being asked for.
-			for _, lang := range r.Annotated {
-				if dir, ok := annotationImportPath(lang); ok {
-					args = append(args, "-I", dir)
-				}
-			}
-
-			// capnp writes output next to the source unless the generator spec
-			// carries a directory after a colon.
-			args = append(args, "-o", gen+":"+r.OutDir)
-			args = append(args, r.Flags...)
-			return append(args, r.Files...), nil
-		},
-	},
-}
-
-// ErrNoToolchain reports that a target has no one-shot compiler to drive.
-var ErrNoToolchain = errors.New("no toolchain to invoke")
 
 // Run compiles one request.
 //
@@ -153,8 +102,8 @@ func Run(r Request) error {
 
 	path, err := exec.LookPath(tool.Binary)
 	if err != nil {
-		return fmt.Errorf("%s is not on PATH, and the %s target needs it to produce %s.\n    install: %s",
-			tool.Binary, r.Target, r.Language, tool.Install)
+		return fmt.Errorf("%s is not on PATH, and the %s target needs it to produce %s.\n%s",
+			tool.Binary, r.Target, r.Language, tool.Install.Detail("    "))
 	}
 
 	if err := os.MkdirAll(r.OutDir, 0o755); err != nil {
@@ -166,12 +115,37 @@ func Run(r Request) error {
 	if r.OutDir, err = filepath.Abs(r.OutDir); err != nil {
 		return err
 	}
-
-	args, err := tool.Args(r)
-	if err != nil {
+	if err := checkGenerator(r); err != nil {
 		return err
 	}
-	if err := checkGenerator(r); err != nil {
+
+	for _, batch := range batches(tool, r.Files) {
+		one := r
+		one.Files = batch
+		if err := invoke(path, tool, one); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// batches splits the file list into the groups one invocation each takes, which
+// is the whole list for every compiler here except Thrift's.
+func batches(tool Tool, files []string) [][]string {
+	if !tool.PerFile {
+		return [][]string{files}
+	}
+	out := make([][]string, 0, len(files))
+	for _, f := range files {
+		out = append(out, []string{f})
+	}
+	return out
+}
+
+// invoke runs the compiler once.
+func invoke(path string, tool Tool, r Request) error {
+	args, err := tool.Args(r)
+	if err != nil {
 		return err
 	}
 

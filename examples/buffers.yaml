@@ -42,6 +42,16 @@ generate:
     lang_out: _lang/capnp
     go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/capnp/go
 
+  # Apache Thrift. go is here because it is the one Thrift backend with a
+  # resolution hazard — without package_prefix the generated code imports
+  # cross-package types by bare path, which resolves against no module, exactly
+  # as flatc does without --go-module-name. py is cheap and exercises the
+  # namespace tree.
+  - target: thrift
+    languages: [go, py]
+    lang_out: _lang/thrift
+    go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/thrift/go
+
   - target: ros
 
   - target: wire
