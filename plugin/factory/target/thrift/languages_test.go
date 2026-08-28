@@ -8,68 +8,104 @@ import (
 	"testing"
 )
 
-// TestDeclaredLanguagesExist checks Languages() against the installed compiler
-// rather than against Thrift's documentation.
+// coreGenerators are the ones every Thrift this repository supports has had for
+// years, and the ones a user is most likely to ask for.
 //
-// It exists because the first version of that list was transcribed from docs and
-// was wrong in both directions: it claimed `swift` and `hs`, which this compiler
-// does not have, and omitted `kotlin`, which it does — so `buffers generate
-// --lang kotlin` was refused for a generator that works, and `--lang swift` was
-// accepted for one that does not, failing later inside thrift with a message
-// about generation rather than about the flag.
-//
-// Only the dangerous direction fails. Claiming a generator the compiler lacks is
-// a broken promise made by this repository. The reverse — the compiler having one
-// this list omits — is reported and not failed, because the generator set grows
-// between Thrift releases and a contributor on an older or newer thrift should
-// not get a red build for it.
-func TestDeclaredLanguagesExist(t *testing.T) {
-	have := installedGenerators(t)
+// They are asserted because the interesting failure is not drift, it is an edit
+// that drops one — `kotlin` was missing from the original list for exactly that
+// reason, and `--lang kotlin` was refused for a generator that works. Everything
+// outside this set moves between releases and is reported rather than asserted.
+var coreGenerators = []string{
+	"cpp", "dart", "go", "java", "js", "netstd", "perl", "php", "py", "rb", "rs",
+}
 
-	var declared []string
-	for _, lang := range (&Target{}).Languages() {
-		if lang != schemaOnly {
-			declared = append(declared, lang)
+// TestLanguagesCoversTheCoreGenerators is the version-stable half of the check.
+func TestLanguagesCoversTheCoreGenerators(t *testing.T) {
+	declared := declaredLanguages()
+	for _, want := range coreGenerators {
+		if !declared[want] {
+			t.Errorf("Languages() no longer offers %q, which every supported thrift can generate", want)
 		}
-	}
-
-	for _, lang := range declared {
-		if !have[lang] {
-			t.Errorf("Languages() claims %q, which the installed thrift cannot generate; "+
-				"a --lang using it would be accepted here and then fail inside thrift", lang)
-		}
-	}
-
-	claimed := map[string]bool{}
-	for _, lang := range declared {
-		claimed[lang] = true
-	}
-	var missing []string
-	for lang := range have {
-		if !claimed[lang] {
-			missing = append(missing, lang)
-		}
-	}
-	sort.Strings(missing)
-	if len(missing) > 0 {
-		t.Logf("the installed thrift also generates %s, which Languages() does not offer; "+
-			"add them if this build's thrift is the one to track", strings.Join(missing, ", "))
 	}
 }
 
-// installedGenerators reads the generator names out of `thrift --help`, or skips.
+// TestLanguagesIsWellFormed catches the ordinary editing mistakes a long literal
+// list invites: a duplicate, or an entry that is not a generator name.
+func TestLanguagesIsWellFormed(t *testing.T) {
+	seen := map[string]bool{}
+	name := regexp.MustCompile(`^[a-z_0-9]+$`)
+
+	for _, lang := range (&Target{}).Languages() {
+		if lang == schemaOnly {
+			continue
+		}
+		if seen[lang] {
+			t.Errorf("Languages() lists %q twice", lang)
+		}
+		seen[lang] = true
+		if !name.MatchString(lang) {
+			t.Errorf("Languages() lists %q, which is not a thrift generator name", lang)
+		}
+	}
+}
+
+// TestLanguagesAgainstInstalledThrift reports how the declared superset differs
+// from the thrift on this machine, and deliberately fails on neither direction.
 //
-// The section lists one generator per stanza, as an indented name followed by a
-// parenthesised description, with its options indented further beneath it — so
-// the name is matched at a known depth rather than by scanning for words.
+// An earlier version of this test asserted the two matched, and that was wrong in
+// a way worth recording. Thrift 0.24 generates `mmd` and has no `swift`; the
+// thrift Ubuntu packages generates `swift` and has no `mmd`. The assertion passed
+// locally and failed in CI, for a list that was correct — the set is a property
+// of the installed binary, not of this repository, and the code now treats it
+// that way. What is left here is a drift report worth reading when the list is
+// next edited.
+func TestLanguagesAgainstInstalledThrift(t *testing.T) {
+	have := installedGenerators(t)
+	declared := declaredLanguages()
+
+	var claimedNotHere, hereNotClaimed []string
+	for lang := range declared {
+		if !have[lang] {
+			claimedNotHere = append(claimedNotHere, lang)
+		}
+	}
+	for lang := range have {
+		if !declared[lang] {
+			hereNotClaimed = append(hereNotClaimed, lang)
+		}
+	}
+	sort.Strings(claimedNotHere)
+	sort.Strings(hereNotClaimed)
+
+	if len(claimedNotHere) > 0 {
+		t.Logf("listed but absent from this thrift: %s — a run asking for one gets "+
+			"langs.checkThriftGenerator's message naming what this build does offer",
+			strings.Join(claimedNotHere, ", "))
+	}
+	if len(hereNotClaimed) > 0 {
+		t.Logf("this thrift also generates: %s — add them to Languages() if they are "+
+			"worth offering", strings.Join(hereNotClaimed, ", "))
+	}
+}
+
+// declaredLanguages is Languages() as a set, without the schema-only entry.
+func declaredLanguages() map[string]bool {
+	out := map[string]bool{}
+	for _, lang := range (&Target{}).Languages() {
+		if lang != schemaOnly {
+			out[lang] = true
+		}
+	}
+	return out
+}
+
+// installedGenerators reads the generator names out of `thrift --help`, or skips.
 func installedGenerators(t *testing.T) map[string]bool {
 	t.Helper()
 
 	if _, err := exec.LookPath("thrift"); err != nil {
-		t.Skip("thrift is not on PATH; skipping the generator check")
+		t.Skip("thrift is not on PATH; skipping the generator report")
 	}
-	// thrift prints its usage and exits non-zero, so the error is ignored and
-	// only the output read.
 	out, _ := exec.Command("thrift", "--help").CombinedOutput()
 
 	line := regexp.MustCompile(`(?m)^  ([a-z_0-9]+) \(`)

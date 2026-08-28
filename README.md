@@ -69,7 +69,7 @@ flowchart LR
     IR --> WR["wire.gradle.kts"]
     FB --> FC["flatc → 15 backends"]
     CP --> CC["capnp → 8 backends"]
-    TH --> TC["thrift → 29 backends"]
+    TH --> TC["thrift → 30 backends"]
 ```
 
 ## The problem it actually solves
@@ -167,7 +167,7 @@ buf build proto -o descriptors.binpb --as-file-descriptor-set
 |---|---|---|---|
 | `flatbuffers` | `.fbs` | `flatc` | **cpp, csharp, dart, go, java, kotlin, kotlin-kmp, lobster, lua, nim, php, python, rust, swift, ts** |
 | `capnp` | `.capnp` + RPC interfaces | `capnp` + a `capnpc-<lang>` plugin | c++, go, rust, java, kotlin, python, ts, csharp |
-| `thrift` | `.thrift` + services | `thrift` | **c_glib, cl, cpp, d, dart, delphi, erl, go, gv, haxe, html, java, javame, js, json, kotlin, lua, markdown, mmd, netstd, ocaml, perl, php, py, rb, rs, st, xml, xsd** |
+| `thrift` | `.thrift` + services | `thrift` | **c_glib, cl, cpp, d, dart, delphi, erl, go, gv, haxe, html, java, javame, js, json, kotlin, lua, markdown, mmd, netstd, ocaml, perl, php, py, rb, rs, st, swift, xml, xsd** — see the version note below |
 | `ros` | `.msg`, `.srv`, `topics.yaml` | rosidl, via colcon | c, cpp, python |
 | `wire` | `wire.gradle.kts`, `Topics.kt` | Wire, via Gradle | kotlin, java, swift |
 
@@ -190,7 +190,7 @@ generator exists at all.
 | **Java** | ✅ | ✅ ‡no interfaces | ✅ | – | ✅ |
 | **Kotlin** | ✅ | ✅ ‡via `capnpc-java` | ✅ | – | ✅ |
 | **Dart** | ✅ | ❌ none exists | ✅ | – | – |
-| **Swift** | ✅ | ❌ none exists | ❌ not in 0.24 | – | ✅ |
+| **Swift** | ✅ | ❌ none exists | ⚠️ version-dependent | – | ✅ |
 
 **Every language above is reachable, and FlatBuffers alone covers all of them** —
 which is why it is the one to reach for when a project spans every client you
@@ -202,6 +202,13 @@ letting you meet them as a crash:
 - **†Python has no generator, and needs none.** pycapnp loads the schema when
   your program starts — `capnp.load("sensors/v1/sensors.capnp")` — so the emitted
   `.capnp` *is* the deliverable. `--lang python` says so and compiles nothing.
+- **⚠️Thrift's generator set moves between releases.** Thrift 0.24 dropped the
+  Swift generator and added Mermaid; the thrift Ubuntu currently packages is the
+  other way round. Both are ordinary supported versions, so the language column
+  above is a **superset** rather than a description of any one build. `buffers`
+  asks the installed compiler what it actually has, and a language it lacks is
+  reported with the set it does offer rather than as thrift's bare
+  `Unable to get a generator`.
 - **‡Java and Kotlin cannot carry the RPC interfaces.** capnproto-java is
   serialization-only and its plugin aborts on an interface with
   `failed: interfaces not implemented`, naming a line in its own C++. The build
@@ -233,7 +240,7 @@ How far one `.proto` reaches, by backend count:
 ```mermaid
 sankey-beta
 
-protobuf,thrift,29
+protobuf,thrift,30
 protobuf,flatbuffers,15
 protobuf,capnp,8
 protobuf,ros,3
@@ -241,8 +248,8 @@ protobuf,wire,3
 ```
 
 The widths are generator backends, as `buffers targets` counts them, not a quality
-ranking. Seven of Thrift's twenty-nine emit documentation or a schema description
-rather than a language — GraphViz, HTML, Markdown, Mermaid, JSON, XML and XSD;
+ranking, and Thrift's is the superset across versions rather than any one build.
+Seven of its 30 emit documentation or a schema description rather than a language — GraphViz, HTML, Markdown, Mermaid, JSON, XML and XSD;
 Cap'n Proto's eight each need their own `capnpc-` plugin installed,
 while Thrift's and FlatBuffers' are built into the one binary. Reach is one axis —
 what each format can actually *hold* is the next section, and it runs the other
