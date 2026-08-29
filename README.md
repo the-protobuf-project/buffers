@@ -188,10 +188,11 @@ config:
 radar-beta
   axis cpp["C++"], go["Go"], rust["Rust"], py["Python"]
   axis java["Java"], kt["Kotlin"], dart["Dart"], swift["Swift"]
+  axis ts["TypeScript"]
 
-  curve fb["FlatBuffers"]{2, 2, 2, 2, 2, 2, 2, 2}
-  curve cp["Cap'n Proto"]{2, 2, 2, 1, 1, 1, 0, 0}
-  curve th["Thrift"]{2, 2, 2, 2, 2, 2, 2, 1}
+  curve fb["FlatBuffers"]{2, 2, 2, 2, 2, 2, 2, 2, 2}
+  curve cp["Cap'n Proto"]{2, 2, 2, 1, 1, 1, 0, 0, 1}
+  curve th["Thrift"]{2, 2, 2, 2, 2, 2, 2, 1, 1}
 
   max 2
   min 0
@@ -204,8 +205,8 @@ reaches C++ and Python through colcon, wire reaches Java, Kotlin and Swift throu
 Gradle — and plotting two mostly-empty shapes would say less than that sentence
 does.
 
-FlatBuffers is the full octagon, which is why it is the one to reach for when a
-project spans every client you have.
+FlatBuffers is the only shape that closes, which is why it is the one to reach for
+when a project spans every client you have.
 
 Everything below was earned against this repository's own emitted schema rather
 than read off a feature list, though not all of it the same way:
@@ -216,6 +217,13 @@ than read off a feature list, though not all of it the same way:
   verified by loading the emitted `.capnp` with pycapnp and round-tripping a
   message: the schema parsed, a `Sensor` wrote to 80 bytes and read back intact,
   and the `payload` oneof arrived as a union.
+- **TypeScript was typechecked, not just generated**, because producing files is
+  the part that was already passing. Both toolchains write cross-file imports as
+  paths, and a path is exactly what an exit code does not check: `flatc --ts` and
+  `capnpc-ts` each exit 0 on output whose imports resolve to nothing. So the
+  claim above is `tsc --strict` over a module that imports the deepest generated
+  type, which pulls the whole tree in through those imports and fails if any of
+  them is wrong. `TestGeneratedTypeScriptCompiles` runs it.
 
 | Language | `flatbuffers` | `capnp` | `thrift` | `ros` | `wire` |
 |---|---|---|---|---|---|
@@ -227,9 +235,10 @@ than read off a feature list, though not all of it the same way:
 | **Kotlin** | yes | yes, via `capnpc-java` | yes | – | yes |
 | **Dart** | yes | no generator exists | yes | – | – |
 | **Swift** | yes | no generator exists | varies by version | – | yes |
+| **TypeScript** | yes | one-directory schemas only | yes, `js:ts` | – | – |
 
-Three cells carry a caveat, and `buffers` reports each rather than letting you
-meet it as a crash:
+Five cells carry a caveat — four situations, since Java and Kotlin hit the same
+one — and `buffers` reports each rather than letting you meet it as a crash:
 
 - **Python needs no Cap'n Proto generator, and none exists.** pycapnp loads the
   schema when your program starts — `capnp.load("sensors/v1/sensors.capnp")` — so
@@ -249,6 +258,18 @@ meet it as a crash:
   `(buffers.v1.service).targets` — messages generate fine without it. Kotlin is
   the same path, since Cap'n Proto has no Kotlin generator and Kotlin consumes
   the Java output over JVM interop.
+- **Cap'n Proto TypeScript resolves only from one directory.** Both generators —
+  `capnpc-ts` and the maintained `capnp-es` fork — turn a Cap'n Proto import into
+  a TypeScript one by making the schema's own path relative, and that path is
+  relative to the *schema root* while capnp writes the file into the mirrored
+  tree. The two coincide only at the root, so `sensors/v1/sensors.capnp`
+  importing `/buffers/wellknown.capnp` emits
+  `import { Timestamp } from "./buffers/wellknown.capnp.js"` into a file at
+  `sensors/v1/`, and `tsc` reports `TS2307: Cannot find module`. The generator
+  exits 0 either way, so `buffers` warns before it runs. Nothing in the schema
+  can correct it: capnp picks the output path and the generator picks the import
+  text, and neither sees the other. Take TypeScript from the FlatBuffers target,
+  whose `--ts` output resolves across a nested tree.
 
 The absent generators are upstream facts, not omissions here.
 [Cap'n Proto's own list of implementations](https://capnproto.org/otherlang.html)
@@ -259,9 +280,17 @@ language list above is transcribed from `thrift --help` and checked against the
 installed binary by a test, because the first version of it was written from docs
 and claimed two generators that do not exist while omitting one that does.
 
-Wider than the seven: `thrift` is the only target reaching Erlang, OCaml, Perl,
+Wider than the table: `thrift` is the only target reaching Erlang, OCaml, Perl,
 Ruby, D, Haxe or Common Lisp; `flatbuffers` is the only one reaching Nim or
-Lobster; both reach C#, TypeScript, PHP and Lua.
+Lobster; both reach C#, PHP and Lua.
+
+TypeScript is spelled `ts` or `typescript` on either target. The FlatBuffers one
+is the whole story — `flatc --ts` writes the namespace tree itself, so the output
+lands beside your other generated code and cross-namespace imports resolve
+against the output root. Thrift's is an option on its JavaScript backend rather
+than a generator of its own: `--gen js:ts` writes `.d.ts` declarations alongside
+the `.js`, services included. Naming `ts` as a thrift language does not reach it,
+because that spelling selects a generator and thrift has none by that name.
 
 FlatBuffers and Thrift are the two broad ones. Every entry in the FlatBuffers row
 was verified by running `flatc` against this repository's own emitted schema;
@@ -365,6 +394,11 @@ treeView-beta
             billing/
                 v1/
                     Order.py
+        ts/
+            billing/
+                v1.ts
+                v1/
+                    order.ts
 ```
 
 The three that declare a package declare the one the proto asked for —
@@ -379,6 +413,50 @@ where same-named files collide. `buffers` compiles those per source directory an
 passes `--keep-prefix` so the generated `#include`s still resolve across the
 result — a tree that looks right but does not build is the failure mode here, and
 there is a test that compiles it.
+
+**The directory is the proto package, not the proto file.** This is the part that
+surprises people reading the output for the first time, and it is worth being
+explicit about because nothing in the tree hints at it. Every `.proto` in one
+package generates into one directory, so four source files —
+`sensors.proto`, `enums.proto`, `geometry.proto`, `sensors_service.proto`, all
+declaring `package sensors.v1` — produce a single `sensors/v1/` holding every type
+from all four, side by side. There is no `sensors/` and `enums/` beneath it. That
+matches protoc, whose Go and Java output is likewise addressed by package rather
+than by file. The ordinal ledger takes the same view: it identifies a message as
+`sensors.v1.CreateSensorRequest`, package-qualified with no file component, so
+moving a message between files in one package is not a change it records. Which
+file a message was written in is an authoring detail consumers never see.
+
+TypeScript shows this most plainly, because flatc writes one file per *type*
+rather than per schema:
+
+```
+ts/
+  sensors/
+    v1.ts                       <- barrel: re-exports the whole package
+    v1/
+      sensor.ts                 <- from sensors.proto
+      reading.ts                <- from sensors.proto
+      sensor-kind.ts            <- from enums.proto
+      health-state.ts           <- from enums.proto
+      pose.ts                   <- from geometry.proto
+      vector3.ts                <- from geometry.proto
+      get-sensor-request.ts     <- from sensors_service.proto
+      ...
+  buffers/
+    wellknown.ts
+    wellknown/
+      timestamp.ts
+```
+
+Twenty-odd files in `sensors/v1/` is the expected shape, not a missing grouping.
+Import the barrel — `import { Sensor, Pose } from './sensors/v1.js'` — and the
+per-type files stop mattering; they exist because flatc emits them that way, and
+the names are kebab-cased from the type, so `CreateSensorRequest` becomes
+`create-sensor-request.ts`. The cross-package import in `reading.ts` reaching
+`'../../buffers/wellknown/timestamp.js'` is the reason the layout has to be exactly
+this: those paths are written by flatc against the output root, so moving the tree
+breaks them. See `langs/layout.go`.
 
 **Go file names are snake_case.** flatc writes one file per generated *type*, in
 PascalCase — `Order.go`, `CreateOrderRequest.go` — where Go uses lowercase

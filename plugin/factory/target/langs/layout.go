@@ -36,12 +36,26 @@ var nesting = map[string]Nesting{
 	"csharp":     NestByNamespace,
 	"php":        NestByNamespace,
 
+	// TypeScript nests, on both toolchains, and getting this wrong is not
+	// cosmetic. flatc --ts writes sensors/v1/sensor.ts plus a sensors/v1.ts
+	// barrel, and cross-namespace references are relative paths climbing back to
+	// the output root — `import { Timestamp } from '../../buffers/wellknown/
+	// timestamp.js'`. Mirroring the source tree on top of that puts the file at
+	// sensors/v1/sensors/v1/ and the import resolves against the wrong root:
+	//
+	//	sensors/v1/sensors/v1/reading.ts(7,27): error TS2307:
+	//	  Cannot find module '../../buffers/wellknown/timestamp.js'
+	//
+	// capnp agrees for its own reason — it already mirrors the schema tree, so
+	// adding the directory again doubles it exactly as it does for c++ and rust.
+	"ts":         NestByNamespace,
+	"typescript": NestByNamespace,
+
 	"cpp":     NestFlat,
 	"c++":     NestFlat,
 	"rust":    NestFlat,
 	"swift":   NestFlat,
 	"dart":    NestFlat,
-	"ts":      NestFlat,
 	"lobster": NestFlat,
 	"lua":     NestFlat,
 	"nim":     NestFlat,
