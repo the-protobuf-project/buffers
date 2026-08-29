@@ -45,14 +45,23 @@ var flatcFlags = map[string]string{
 // reported as a missing generator with an install line rather than as a capnp
 // failure.
 var capnpGenerators = map[string]string{
-	"c++":    "c++",
-	"cpp":    "c++",
-	"go":     "go",
-	"rust":   "rust",
-	"java":   "java",
-	"kotlin": "java", // capnproto-java output is used from Kotlin via JVM interop
-	"ts":     "ts",
-	"csharp": "csharp",
+	"c++":        "c++",
+	"cpp":        "c++",
+	"go":         "go",
+	"rust":       "rust",
+	"java":       "java",
+	"kotlin":     "java", // capnproto-java output is used from Kotlin via JVM interop
+	"ts":         "ts",
+	"typescript": "ts", // flatcFlags accepts both spellings; so does this
+	"csharp":     "csharp",
+}
+
+// capnpSpellingAliases are keys of capnpGenerators that name a generator another
+// key already names. They are skipped when the set is *listed* — for `buffers
+// doctor`, say — because one binary shown twice reads as two things to install.
+var capnpSpellingAliases = map[string]bool{
+	"cpp":        true, // same generator as c++
+	"typescript": true, // same generator as ts
 }
 
 // capnpPlugins gives the install line for each generator that does not ship with
@@ -110,18 +119,12 @@ func Available(target string) (tool string, driveable, installed bool) {
 
 // CapnpLanguages lists the languages capnp can generate, in a stable order.
 func CapnpLanguages() []string {
-	seen := map[string]bool{}
 	out := make([]string, 0, len(capnpGenerators))
 	for lang := range capnpGenerators {
-		// cpp and c++ are one generator under two spellings; listing both would
-		// imply two things to install.
-		if lang == "cpp" {
+		if capnpSpellingAliases[lang] {
 			continue
 		}
-		if !seen[lang] {
-			seen[lang] = true
-			out = append(out, lang)
-		}
+		out = append(out, lang)
 	}
 	sort.Strings(out)
 	return out

@@ -54,6 +54,7 @@ func compile(cmd *cobra.Command, cfg *config.Config, entries []config.Entry, ove
 		groups := schemaGroups(model, files, ext, cfg.ModuleFor(e))
 		warnUnreconcilableJVM(cmd, groups, languages)
 		warnOldFlatcForGo(cmd, e, languages)
+		warnCapnpTypeScript(cmd, e, groups, languages)
 
 		for _, l := range languages {
 			// Some languages consume the emitted schema directly and have no
@@ -138,62 +139,4 @@ func schemaGroups(model *coreir.Model, files []string, ext, goModule string) []l
 		out = append(out, g)
 	}
 	return out
-}
-
-// warnUnreconcilableJVM reports a java_package flatc cannot be made to emit.
-//
-// flatc has no "set the package" flag, only a prefix prepended to the namespace
-// it derived. A java_package that does not end with the namespace therefore
-// cannot be reproduced, and the generated code would declare a package subtly
-// different from the one the rest of that proto's output uses — the kind of
-// mismatch that surfaces as an unresolved import much later.
-func warnUnreconcilableJVM(cmd *cobra.Command, groups []langs.Group, languages []string) {
-	var java, kotlin bool
-	for _, l := range languages {
-		switch l {
-		case "java":
-			java = true
-		case "kotlin", "kotlin-kmp":
-			kotlin = true
-		}
-	}
-
-	for _, g := range groups {
-		if java && !langs.JVMPackageReconcilable(g.JVMPackage, g.Namespace) {
-			fmt.Fprintf(cmd.ErrOrStderr(),
-				"warning: %s declares java_package %q, which flatc cannot emit over namespace %q "+
-					"— it supports only a prefix prepended to the namespace, and %q is not one. "+
-					"The generated package will be %q.\n"+
-					"    fix: make java_package end with the proto package, or set "+
-					"(buffers.v1.file).namespace to match\n",
-				g.Dir, g.JVMPackage, g.Namespace, g.JVMPackage, g.Namespace)
-		}
-		if kotlin && !langs.KotlinHonoursJVMPackage(g.JVMPackage, g.Namespace) {
-			fmt.Fprintf(cmd.ErrOrStderr(),
-				"warning: %s declares java_package %q, but flatc has no Kotlin package option "+
-					"— the Java one does not apply — so the Kotlin output will declare %q. "+
-					"Java and Kotlin generated from this schema will not share a package.\n"+
-					"    fix: set (buffers.v1.file).namespace to %q if the two must agree\n",
-				g.Dir, g.JVMPackage, g.Namespace, g.JVMPackage)
-		}
-	}
-}
-
-// warnOldFlatcForGo reports a flatc too old to make generated Go compile.
-//
-// The flag it needs, --go-module-name, arrived in flatbuffers 23.1.4, and Ubuntu
-// still ships 2.0.8. Omitting it is what the run has to do — an older flatc
-// rejects an unknown flag rather than ignoring it — so the output is produced and
-// the limitation stated, instead of the user meeting "package buffers/wellknown
-// is not in std" with nothing to connect it to their toolchain.
-func warnOldFlatcForGo(cmd *cobra.Command, e config.Entry, languages []string) {
-	if e.Target != "flatbuffers" || langs.FlatcSupportsGoModule() {
-		return
-	}
-	for _, l := range languages {
-		if l == "go" {
-			fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", langs.GoModuleFlagHint)
-			return
-		}
-	}
 }

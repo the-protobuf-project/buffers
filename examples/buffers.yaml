@@ -30,7 +30,7 @@ generate:
   # broadest coverage of the four targets and the only one here that reaches
   # Swift and Dart.
   - target: flatbuffers
-    languages: [cpp, go, rust, python, java, kotlin, swift, dart]
+    languages: [cpp, go, rust, python, java, kotlin, swift, dart, ts]
     lang_out: _lang/flatbuffers
     go_module: github.com/the-protobuf-project/buffers/examples/generated/_lang/flatbuffers/go
 
@@ -43,6 +43,14 @@ generate:
   # about it, and putting it here would make `just langs` fail by design. python is
   # absent because pycapnp loads the .capnp at run time — there is nothing to
   # compile.
+  #
+  # ts is absent for a third reason. Both capnp TypeScript generators write a
+  # cross-file import relative to the schema root while capnp writes the file into
+  # the mirrored tree, so this schema — which spans buffers/ and sensors/v1/ —
+  # generates imports that resolve to nothing. capnpc-ts exits 0 on it, so unlike
+  # the java case it would not fail the run, it would quietly produce output that
+  # does not typecheck. The FlatBuffers entry above covers TypeScript; `buffers`
+  # warns if you ask for this one anyway. See langs/capnpts.go.
   - target: capnp
     languages: [c++, go, rust]
     lang_out: _lang/capnp
