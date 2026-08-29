@@ -237,8 +237,8 @@ than read off a feature list, though not all of it the same way:
 | **Swift** | yes | no generator exists | varies by version | – | yes |
 | **TypeScript** | yes | one-directory schemas only | yes, `js:ts` | – | – |
 
-Four cells carry a caveat, and `buffers` reports each rather than letting you
-meet it as a crash:
+Five cells carry a caveat — four situations, since Java and Kotlin hit the same
+one — and `buffers` reports each rather than letting you meet it as a crash:
 
 - **Python needs no Cap'n Proto generator, and none exists.** pycapnp loads the
   schema when your program starts — `capnp.load("sensors/v1/sensors.capnp")` — so

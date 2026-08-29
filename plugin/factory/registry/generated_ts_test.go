@@ -32,6 +32,17 @@ import (
 	"github.com/the-protobuf-project/buffers/plugin/factory/target/langs"
 )
 
+// The npm packages this test typechecks against, pinned so a release of either
+// cannot turn the build red on a day nothing in this repository changed.
+const (
+	// tscVersion is the TypeScript compiler the generated code is checked with.
+	tscVersion = "typescript@7.0.2"
+
+	// flatbuffersVersion is the runtime every generated module imports. It has to
+	// resolve for the imports to typecheck at all.
+	flatbuffersVersion = "flatbuffers@25.9.23"
+)
+
 // TestGeneratedTypeScriptCompiles renders the schema, runs flatc over it the way
 // the CLI does, and typechecks the result under `strict`.
 func TestGeneratedTypeScriptCompiles(t *testing.T) {
@@ -63,11 +74,21 @@ func TestGeneratedTypeScriptCompiles(t *testing.T) {
 	// The flatbuffers runtime and tsc have to be resolvable, which needs the
 	// network. A machine without it should skip rather than fail: this asserts the
 	// generated code, not the registry.
+	//
+	// Both are pinned exactly. Unpinned, a tsc release that tightened a check
+	// would fail this test on a day nothing here changed, and the failure would
+	// point at the generated code rather than at the compiler that moved — the
+	// same reason the golden tests pin their output. Resolution is deterministic
+	// without a lockfile: flatbuffers has no dependencies, and TypeScript's are
+	// its own platform binaries, pinned to its exact version.
+	//
+	// Bump them deliberately. A new major here is worth running by hand first: it
+	// is the one signal that a newer tsc rejects what flatc emits.
 	install := exec.Command(npm, "install", "--silent", "--no-audit", "--no-fund",
-		"--prefix", project, "typescript", "flatbuffers")
+		"--prefix", project, tscVersion, flatbuffersVersion)
 	if out, err := install.CombinedOutput(); err != nil {
-		t.Skipf("cannot install typescript and the flatbuffers runtime (offline?); skipping: %v\n%s",
-			err, firstLines(out, 4))
+		t.Skipf("cannot install %s and %s (offline?); skipping: %v\n%s",
+			tscVersion, flatbuffersVersion, err, firstLines(out, 4))
 	}
 
 	// A consumer module rather than the generated files alone: tsc treats a bare
