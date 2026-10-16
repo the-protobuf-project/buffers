@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/the-protobuf-project/protokit/buffers"
+
+	"github.com/the-protobuf-project/buffers/plugin/factory/target/wellknown"
 )
 
 // scalar returns the ROS spelling of a proto scalar kind, and whether the kind
@@ -93,6 +95,10 @@ func (r *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.D
 		// sensor_msgs/Image uses for pixel data.
 		return "uint8[]", nil
 	case buffers.KindEnum:
+		if wellknown.IsNullValue(f) {
+			// ROS has no null; std_msgs/Empty is its "no payload".
+			return "std_msgs/Empty", nil
+		}
 		return r.qualify(r.enumRosName(f.Enum), from), nil
 	case buffers.KindMessage:
 		return r.messageType(f, from)

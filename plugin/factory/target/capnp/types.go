@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/the-protobuf-project/protokit/buffers"
+
+	"github.com/the-protobuf-project/buffers/plugin/factory/target/wellknown"
 )
 
 // scalar returns the Cap'n Proto spelling of a proto scalar kind, and whether the
@@ -57,6 +59,11 @@ func (r *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.D
 	case buffers.KindBytes:
 		return "Data", nil
 	case buffers.KindEnum:
+		if wellknown.IsNullValue(f) {
+			// Void is exactly "no value" and occupies no bits; as a union arm
+			// it is how Cap'n Proto spells null.
+			return "Void", nil
+		}
 		return r.qualify(f.Enum, from), nil
 	case buffers.KindMessage:
 		return r.messageType(f, from)

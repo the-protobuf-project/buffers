@@ -46,6 +46,25 @@ func TestPlanDoesNotDoubleNestSelfNestingLanguages(t *testing.T) {
 	}
 }
 
+func TestCapnpRustAndCppAreNotNestedTwice(t *testing.T) {
+	groups := []Group{{Dir: "bacnet/object/v1", Files: []string{"bacnet/object/v1/value.capnp"}}}
+
+	// capnp hands its plugin the schema's path as given, and the C++ and Rust
+	// generators write beneath it — out/bacnet/object/v1/value_capnp.rs. The
+	// flatc table calls those languages flat, and borrowing that answer here
+	// put the output at out/bacnet/object/v1/bacnet/object/v1/.
+	for _, lang := range []string{"rust", "c++", "cpp"} {
+		got := Plan("capnp", lang, "schema", "out", groups)
+		if len(got) != 1 || got[0].OutDir != "out" {
+			t.Errorf("capnp %s: OutDir = %q, want out", lang, got[0].OutDir)
+		}
+	}
+	// flatc's C++ and Rust really are flat, and still mirror the tree.
+	if got := Plan("flatbuffers", "rust", "schema", "out", groups); got[0].OutDir != "out/bacnet/object/v1" {
+		t.Errorf("flatbuffers rust: OutDir = %q, want out/bacnet/object/v1", got[0].OutDir)
+	}
+}
+
 func TestFlatLanguagesKeepIncludePrefixes(t *testing.T) {
 	groups := []Group{{Dir: "sensors/v1", Files: []string{"sensors/v1/sensors.fbs"}}}
 

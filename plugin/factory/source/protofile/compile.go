@@ -12,9 +12,10 @@ import (
 	"strings"
 
 	"github.com/bufbuild/protocompile"
-	"github.com/bufbuild/protocompile/linker"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
@@ -56,12 +57,43 @@ func fromSource(in Input) (*protogen.Plugin, error) {
 	for _, f := range linked {
 		collect(f, set, seen)
 	}
+	set, err = asProtocWouldSend(set)
+	if err != nil {
+		return nil, err
+	}
 	return newPlugin(set, targets, in.Parameter)
 }
 
-// collect appends a linked file and its transitive dependencies, dependencies
-// first — the order protoc guarantees and protogen relies on.
-func collect(f linker.File, set *descriptorpb.FileDescriptorSet, seen map[string]bool) {
+// asProtocWouldSend round-trips the set through its wire form.
+//
+// protocompile interprets each option into a dynamic message built from the
+// compiled .proto that declares it, and ToFileDescriptorProto copies those
+// through untouched. protoc and buf hand a plugin bytes instead, which parse
+// into the generated Go types wherever the binary links them — and protokit's
+// readers expect exactly those. Given a google.api.resource as a dynamic
+// message they panicked converting it, so any AIP-annotated schema with
+// googleapis among its imports crashed. Re-parsing makes this path deliver
+// what the protoc path always has.
+func asProtocWouldSend(set *descriptorpb.FileDescriptorSet) (*descriptorpb.FileDescriptorSet, error) {
+	data, err := proto.Marshal(set)
+	if err != nil {
+		return nil, fmt.Errorf("encode compiled descriptors: %w", err)
+	}
+	out := &descriptorpb.FileDescriptorSet{}
+	if err := proto.Unmarshal(data, out); err != nil {
+		return nil, fmt.Errorf("decode compiled descriptors: %w", err)
+	}
+	return out, nil
+}
+
+// collect appends a file and its transitive dependencies, dependencies first —
+// the order protoc guarantees and protogen relies on.
+//
+// It walks protoreflect descriptors rather than linker.File: the well-known
+// types arrive through protocompile's standard imports as plain descriptors,
+// and a walk that only followed linker files left google/protobuf/*.proto out
+// of the request, which protogen then refused as an unresolvable import.
+func collect(f protoreflect.FileDescriptor, set *descriptorpb.FileDescriptorSet, seen map[string]bool) {
 	if seen[f.Path()] {
 		return
 	}
@@ -69,9 +101,7 @@ func collect(f linker.File, set *descriptorpb.FileDescriptorSet, seen map[string
 
 	imports := f.Imports()
 	for i := range imports.Len() {
-		if dep, ok := imports.Get(i).FileDescriptor.(linker.File); ok {
-			collect(dep, set, seen)
-		}
+		collect(imports.Get(i).FileDescriptor, set, seen)
 	}
 	set.File = append(set.File, protodesc.ToFileDescriptorProto(f))
 }
