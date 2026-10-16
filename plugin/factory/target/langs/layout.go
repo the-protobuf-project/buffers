@@ -75,10 +75,30 @@ var thriftNesting = map[string]Nesting{
 	"netstd": NestByNamespace,
 }
 
+// capnpNesting records the languages whose capnp generator builds the source
+// tree itself.
+//
+// capnp hands each plugin the schema's path exactly as given on the command
+// line, and the C++ and Rust generators write beneath it:
+// out/bacnet/object/v1/value_capnp.rs. Under flatc those same languages are
+// flat, so falling back to the shared table mirrored the tree a second time,
+// into out/bacnet/object/v1/bacnet/object/v1/. Determined by running capnp
+// and looking at the tree; a language not listed keeps the shared answer.
+var capnpNesting = map[string]Nesting{
+	"c++":  NestByNamespace,
+	"cpp":  NestByNamespace,
+	"rust": NestByNamespace,
+}
+
 // NestingOf reports how a target's generator for a language lays out its output.
 func NestingOf(target, lang string) Nesting {
-	if target == "thrift" {
+	switch target {
+	case "thrift":
 		return thriftNesting[lang]
+	case "capnp":
+		if n, ok := capnpNesting[lang]; ok {
+			return n
+		}
 	}
 	return nesting[lang]
 }

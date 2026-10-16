@@ -64,6 +64,11 @@ func isDependencyOnly(path string) bool {
 		"google/type/",
 		"google/longrunning/",
 		"buffers/v1/",
+		// protovalidate: as much a part of an AIP schema's toolchain as
+		// googleapis. Its rule messages have unreserved holes in their field
+		// numbers, so generating from them made a strict ordinal check refuse
+		// every schema that merely annotated a field with a constraint.
+		"buf/validate/",
 	} {
 		if strings.HasPrefix(path, prefix) {
 			return true

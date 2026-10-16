@@ -23,6 +23,7 @@ func TestIsDependencyOnly(t *testing.T) {
 		"google/rpc/status.proto",
 		"google/longrunning/operations.proto",
 		"buffers/v1/annotations.proto",
+		"buf/validate/validate.proto",
 	} {
 		if !isDependencyOnly(path) {
 			t.Errorf("%s should not be generated from", path)
@@ -37,6 +38,7 @@ func TestIsDependencyOnly(t *testing.T) {
 		"googleapis_local/thing.proto",
 		"my/google/thing.proto",
 		"buffers/v2/mine.proto",
+		"buf/mine/v1/mine.proto",
 	} {
 		if isDependencyOnly(path) {
 			t.Errorf("%s is the user's own and should be generated from", path)

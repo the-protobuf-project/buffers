@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/the-protobuf-project/protokit/buffers"
+
+	"github.com/the-protobuf-project/buffers/plugin/factory/target/wellknown"
 )
 
 // scalar returns the FlatBuffers spelling of a proto scalar kind, and whether the
@@ -83,6 +85,12 @@ func (t *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.D
 		// flatc generates a direct pointer accessor for it.
 		return "[ubyte]", nil
 	case buffers.KindEnum:
+		if wellknown.IsNullValue(f) {
+			// FlatBuffers has no null type. The empty table says "present,
+			// no payload", which is all a NullValue ever says.
+			t.needPrelude(preludeEmpty)
+			return preludeNamespace + ".Empty", nil
+		}
 		return t.qualify(f.Enum, from), nil
 	case buffers.KindMessage:
 		return t.messageType(f, from)

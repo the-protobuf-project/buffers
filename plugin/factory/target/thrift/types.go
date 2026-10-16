@@ -15,6 +15,8 @@ import (
 	"fmt"
 
 	"github.com/the-protobuf-project/protokit/buffers"
+
+	"github.com/the-protobuf-project/buffers/plugin/factory/target/wellknown"
 )
 
 // scalar returns the Thrift spelling of a proto scalar kind, the note the
@@ -99,6 +101,12 @@ func (r *run) baseType(f *buffers.Field, from *buffers.File) (string, *buffers.D
 	case buffers.KindBytes:
 		return "binary", nil
 	case buffers.KindEnum:
+		if wellknown.IsNullValue(f) {
+			// Thrift has no null type; the empty struct carries presence and
+			// nothing else, which is all a NullValue ever says.
+			r.needPrelude(preludeEmpty)
+			return r.preludeRef("Empty"), nil
+		}
 		return r.qualify(f.Enum, from), nil
 	case buffers.KindMessage:
 		return r.messageType(f, from)
