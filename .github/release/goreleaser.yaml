@@ -103,15 +103,15 @@ homebrew_casks:
     binaries:
       - protoc-gen-buffers
       - buffers
-    url:
-      verified: 'github.com/the-protobuf-project/buffers/'
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/protoc-gen-buffers"]
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/buffers"]
-          end
+    # Homebrew deprecated `postflight`; GoReleaser hooks can only emit that,
+    # so the install steps go in a custom block instead.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "protoc-gen-buffers"], chdir: "."
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "buffers"], chdir: "."
+        end
+      end
 
 release:
   github:
